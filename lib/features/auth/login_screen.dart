@@ -12,7 +12,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -53,17 +54,31 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _bgAnim2 = Tween<double>(begin: 0.8, end: 1.0).animate(_bgController2);
 
     _cardOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _cardController, curve: const Interval(0.2, 1.0, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _cardController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+      ),
     );
-    _cardSlide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
-      CurvedAnimation(parent: _cardController, curve: const Interval(0.2, 1.0, curve: Curves.easeOut)),
-    );
+    _cardSlide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _cardController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
     _logoOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _cardController, curve: const Interval(0.0, 0.6, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _cardController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
     );
-    _logoSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _cardController, curve: const Interval(0.0, 0.6, curve: Curves.easeOut)),
-    );
+    _logoSlide = Tween<Offset>(begin: const Offset(0, -0.3), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _cardController,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+          ),
+        );
   }
 
   @override
@@ -107,7 +122,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [AltheaColors.gold.withOpacity(0.2), Colors.transparent],
+                      colors: [
+                        AltheaColors.gold.withOpacity(0.2),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
@@ -127,7 +145,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [AltheaColors.navyMid.withOpacity(0.5), Colors.transparent],
+                      colors: [
+                        AltheaColors.navyMid.withOpacity(0.5),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
@@ -139,7 +160,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -154,12 +178,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             Container(
                               width: 60,
                               height: 60,
+                              padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: AltheaColors.navy,
+                                color: Colors.white.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
                               ),
                               child: Image.asset(
-                                'assets/images/althea_logo.png',
+                                'assets/images/logoAlthea.png',
                                 errorBuilder: (_, __, ___) => const Icon(
                                   Icons.local_hospital_rounded,
                                   color: AltheaColors.gold,
@@ -209,7 +237,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.3),
@@ -260,8 +290,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                         label: 'Correo electrónico',
                                         hint: 'tu@correo.com',
                                         icon: Icons.mail_outline_rounded,
-                                        keyboardType: TextInputType.emailAddress,
-                                        validator: (v) => v == null || v.isEmpty ? 'Ingresa tu correo' : null,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        validator: (v) => v == null || v.isEmpty
+                                            ? 'Ingresa tu correo'
+                                            : null,
                                       ),
                                       const SizedBox(height: 16),
 
@@ -273,8 +306,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                         icon: Icons.lock_outline_rounded,
                                         isPassword: true,
                                         showPassword: _showPassword,
-                                        onTogglePassword: () => setState(() => _showPassword = !_showPassword),
-                                        validator: (v) => v == null || v.isEmpty ? 'Ingresa tu contraseña' : null,
+                                        onTogglePassword: () => setState(
+                                          () => _showPassword = !_showPassword,
+                                        ),
+                                        validator: (v) => v == null || v.isEmpty
+                                            ? 'Ingresa tu contraseña'
+                                            : null,
                                       ),
 
                                       // Forgot Password
@@ -307,18 +344,34 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       // Divider
                                       Row(
                                         children: [
-                                          Expanded(child: Divider(color: Colors.white.withOpacity(0.2))),
+                                          Expanded(
+                                            child: Divider(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                            ),
+                                          ),
                                           Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
                                             child: Text(
                                               'o continúa con',
                                               style: TextStyle(
-                                                color: Colors.white.withOpacity(0.5),
+                                                color: Colors.white.withOpacity(
+                                                  0.5,
+                                                ),
                                                 fontSize: 12,
                                               ),
                                             ),
                                           ),
-                                          Expanded(child: Divider(color: Colors.white.withOpacity(0.2))),
+                                          Expanded(
+                                            child: Divider(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                            ),
+                                          ),
                                         ],
                                       ),
 
@@ -327,9 +380,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       // Social buttons
                                       Row(
                                         children: [
-                                          Expanded(child: _SocialButton(label: 'Google', icon: _googleIcon())),
+                                          Expanded(
+                                            child: _SocialButton(
+                                              label: 'Google',
+                                              icon: _googleIcon(),
+                                            ),
+                                          ),
                                           const SizedBox(width: 12),
-                                          Expanded(child: _SocialButton(label: 'Facebook', icon: _facebookIcon())),
+                                          Expanded(
+                                            child: _SocialButton(
+                                              label: 'Facebook',
+                                              icon: _facebookIcon(),
+                                            ),
+                                          ),
                                         ],
                                       ),
 
@@ -345,19 +408,26 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
                                       color: Colors.black.withOpacity(0.1),
-                                      border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Colors.white.withOpacity(0.1),
+                                        ),
+                                      ),
                                       borderRadius: const BorderRadius.only(
                                         bottomLeft: Radius.circular(28),
                                         bottomRight: Radius.circular(28),
                                       ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           '¿No tienes cuenta? ',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.7),
+                                            color: Colors.white.withOpacity(
+                                              0.7,
+                                            ),
                                             fontSize: 14,
                                           ),
                                         ),
@@ -406,8 +476,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _googleIcon() => const Icon(Icons.g_mobiledata_rounded, color: Colors.white, size: 22);
-  Widget _facebookIcon() => const Icon(Icons.facebook_rounded, color: Color(0xFF1877F2), size: 22);
+  Widget _googleIcon() =>
+      const Icon(Icons.g_mobiledata_rounded, color: Colors.white, size: 22);
+  Widget _facebookIcon() =>
+      const Icon(Icons.facebook_rounded, color: Color(0xFF1877F2), size: 22);
 }
 
 // ─── Sub-widgets ───────────────────────────────────────────────
@@ -458,11 +530,17 @@ class _GlassInput extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-            prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.4), size: 20),
+            prefixIcon: Icon(
+              icon,
+              color: Colors.white.withOpacity(0.4),
+              size: 20,
+            ),
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
-                      showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      showPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       color: Colors.white.withOpacity(0.4),
                       size: 20,
                     ),
@@ -481,7 +559,10 @@ class _GlassInput extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AltheaColors.gold, width: 1.5),
+              borderSide: const BorderSide(
+                color: AltheaColors.gold,
+                width: 1.5,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -552,7 +633,9 @@ class _AnimatedGoldButtonState extends State<_AnimatedGoldButton> {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AltheaColors.navy),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AltheaColors.navy,
+                      ),
                     ),
                   )
                 : Text(
@@ -592,7 +675,9 @@ class _SocialButtonState extends State<_SocialButton> {
         duration: const Duration(milliseconds: 150),
         height: 48,
         decoration: BoxDecoration(
-          color: _hovered ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.2),
+          color: _hovered
+              ? Colors.black.withOpacity(0.4)
+              : Colors.black.withOpacity(0.2),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: _hovered

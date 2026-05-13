@@ -131,7 +131,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 1.6,
+                            mainAxisExtent: 110,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -140,7 +140,10 @@ class AdminDashboardScreen extends StatelessWidget {
                         final s = stats[i];
                         final isGold = s['highlighted'] as bool;
                         return Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: AltheaColors.lightCard,
                             borderRadius: BorderRadius.circular(16),
@@ -206,7 +209,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 1.5,
+                          mainAxisExtent: 100,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),
@@ -241,6 +244,7 @@ class AdminDashboardScreen extends StatelessWidget {
                               const SizedBox(height: 8),
                               Text(
                                 m['label'] as String,
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,

@@ -86,7 +86,7 @@ class AltheaHeader extends StatelessWidget {
                               border: Border.all(color: Colors.white.withOpacity(0.2)),
                             ),
                             child: Image.asset(
-                              'assets/images/althea_logo.png',
+                              'assets/images/logoAlthea.png',
                               width: 32,
                               height: 32,
                               errorBuilder: (_, __, ___) => const Icon(
