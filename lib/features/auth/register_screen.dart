@@ -20,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _showPassword = false;
+  bool _isLoading = false;
 
   late AnimationController _animCtrl;
   late Animation<double> _opacity;
@@ -54,11 +55,42 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.dispose();
   }
 
-  void _handleRegister() {
+  void _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    if (!mounted) return;
     final provider = context.read<UserProvider>();
-    provider.login(_emailCtrl.text.trim(), _passwordCtrl.text);
-    context.go('/patient/dashboard');
+
+    try {
+      await provider.register(
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      );
+
+      if (!mounted) return;
+      context.go(provider.user!.initialRoute);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e
+                .toString()
+                .replaceAll('Exception: ', '')
+                .replaceAll('AuthException(message: ', '')
+                .replaceAll(')', ''),
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -223,6 +255,17 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         'tu@correo.com',
                                         Icons.mail_outline_rounded,
                                         keyboard: TextInputType.emailAddress,
+                                        validator: (v) {
+                                          if (v != null && v.isNotEmpty) {
+                                            final regex = RegExp(
+                                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                            );
+                                            if (!regex.hasMatch(v)) {
+                                              return 'Correo inválido';
+                                            }
+                                          }
+                                          return null;
+                                        },
                                       ),
                                       const SizedBox(height: 14),
                                       Row(
@@ -236,6 +279,17 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               '555 123 4567',
                                               Icons.phone_outlined,
                                               keyboard: TextInputType.phone,
+                                              validator: (v) {
+                                                if (v == null || v.isEmpty)
+                                                  return 'Campo requerido';
+                                                final digitsOnly = v.replaceAll(
+                                                  RegExp(r'\D'),
+                                                  '',
+                                                );
+                                                if (digitsOnly.length != 10)
+                                                  return 'Debe tener exactamente 10 dígitos';
+                                                return null;
+                                              },
                                             ),
                                           ),
                                         ],
@@ -247,7 +301,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       // Register Button
                                       _GoldButton(
                                         label: 'Crear Cuenta',
-                                        onTap: _handleRegister,
+                                        onTap: _isLoading
+                                            ? () {}
+                                            : _handleRegister,
+                                        isLoading: _isLoading,
                                       ),
                                     ],
                                   ),
@@ -332,6 +389,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     String hint,
     IconData icon, {
     TextInputType keyboard = TextInputType.text,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +406,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         TextFormField(
           controller: ctrl,
           keyboardType: keyboard,
-          validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+          validator:
+              validator ??
+              (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hint,
@@ -406,7 +466,11 @@ class _RegisterScreenState extends State<RegisterScreen>
         TextFormField(
           controller: _passwordCtrl,
           obscureText: !_showPassword,
-          validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+          validator: (v) {
+            if (v == null || v.isEmpty) return 'Campo requerido';
+            if (v.length < 8) return 'Debe tener al menos 8 caracteres';
+            return null;
+          },
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: '••••••••',
@@ -462,7 +526,12 @@ class _RegisterScreenState extends State<RegisterScreen>
 class _GoldButton extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
-  const _GoldButton({required this.label, required this.onTap});
+  final bool isLoading;
+  const _GoldButton({
+    required this.label,
+    required this.onTap,
+    this.isLoading = false,
+  });
   @override
   State<_GoldButton> createState() => _GoldButtonState();
 }
@@ -498,14 +567,24 @@ class _GoldButtonState extends State<_GoldButton> {
             ],
           ),
           child: Center(
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                color: AltheaColors.navy,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: AltheaColors.darkBg,
+                      strokeWidth: 3,
+                    ),
+                  )
+                : Text(
+                    widget.label,
+                    style: const TextStyle(
+                      color: AltheaColors.darkBg,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
           ),
         ),
       ),

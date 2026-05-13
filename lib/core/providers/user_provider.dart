@@ -72,6 +72,54 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Registra un nuevo usuario en Supabase (auth y tabla usuarios)
+  Future<void> register({
+    required String name,
+    required String phone,
+    String? email,
+    required String password,
+  }) async {
+    final supabase = Supabase.instance.client;
+
+    // 1. Generar correo si no existe
+    final finalEmail = (email == null || email.trim().isEmpty)
+        ? '${phone.trim()}@althea.com'
+        : email.trim();
+
+    // 2. Verificar si el teléfono ya existe en la base de datos
+    final existingPhone = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('telefono', phone.trim())
+        .maybeSingle();
+
+    if (existingPhone != null) {
+      throw Exception('Este número de teléfono ya está registrado.');
+    }
+
+    // 3. Registrar en auth.users
+    final authResponse = await supabase.auth.signUp(
+      email: finalEmail,
+      password: password,
+    );
+
+    if (authResponse.user == null) {
+      throw Exception('Error al crear la cuenta en el sistema.');
+    }
+
+    // 4. Insertar perfil en la tabla usuarios
+    await supabase.from('usuarios').insert({
+      'id': authResponse.user!.id,
+      'nombre_completo': name.trim(),
+      'correo': finalEmail,
+      'telefono': phone.trim(),
+      'rol': 'paciente',
+    });
+
+    // 5. Iniciar sesión automáticamente
+    await login(phone.trim(), password);
+  }
+
   Future<void> logout() async {
     await Supabase.instance.client.auth.signOut();
     _user = null;
