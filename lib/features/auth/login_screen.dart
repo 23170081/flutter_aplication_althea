@@ -94,12 +94,31 @@ class _LoginScreenState extends State<LoginScreen>
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 400));
 
     if (!mounted) return;
     final provider = context.read<UserProvider>();
-    provider.login(_emailController.text.trim(), _passwordController.text);
-    context.go(provider.user!.initialRoute);
+    
+    try {
+      await provider.login(
+        _emailController.text.trim(), 
+        _passwordController.text,
+      );
+      
+      if (!mounted) return;
+      context.go(provider.user!.initialRoute);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '').replaceAll('AuthException(message: ', '').replaceAll(')', '')),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -287,13 +306,12 @@ class _LoginScreenState extends State<LoginScreen>
                                       // Email
                                       _GlassInput(
                                         controller: _emailController,
-                                        label: 'Correo electrónico',
-                                        hint: 'tu@correo.com',
-                                        icon: Icons.mail_outline_rounded,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
+                                        label: 'Telefono',
+                                        hint: '000-000-0000',
+                                        icon: Icons.phone_android_rounded,
+                                        keyboardType: TextInputType.phone,
                                         validator: (v) => v == null || v.isEmpty
-                                            ? 'Ingresa tu correo'
+                                            ? 'Ingresa tu telefono'
                                             : null,
                                       ),
                                       const SizedBox(height: 16),

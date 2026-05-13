@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_althea/core/models/user_model.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -7,34 +8,72 @@ class UserProvider extends ChangeNotifier {
   UserModel? get user => _user;
   bool get isLoggedIn => _user != null;
 
-  /// Mock login: role is inferred from email content (mirrors TS behavior)
-  void login(String email, String password) {
-    UserRole role = UserRole.patient;
-    if (email.contains('doctor')) role = UserRole.doctor;
-    if (email.contains('admin')) role = UserRole.admin;
-    if (email.contains('reception')) role = UserRole.receptionist;
+  /// Inicia sesión buscando el teléfono y comparando contraseña en Supabase
+  Future<void> login(String telefono, String password) async {
+    final supabase = Supabase.instance.client;
 
-    String name;
-    switch (role) {
-      case UserRole.patient:
-        name = 'Juan Pérez';
+    // 1. Buscar el usuario por teléfono en la tabla 'usuarios'
+    final queryData = await supabase
+        .from('usuarios')
+        .select('correo')
+        .eq('telefono', telefono)
+        .maybeSingle();
+
+    if (queryData == null) {
+      throw Exception('No se encontró ninguna cuenta con este teléfono.');
+    }
+
+    final String correo = queryData['correo'];
+
+    // 2. Iniciar sesión en auth.users con ese correo y contraseña
+    final authResponse = await supabase.auth.signInWithPassword(
+      email: correo,
+      password: password,
+    );
+
+    if (authResponse.user == null) {
+      throw Exception('Error al iniciar sesión.');
+    }
+
+    // 3. Obtener el perfil completo del usuario
+    final userData = await supabase
+        .from('usuarios')
+        .select()
+        .eq('id', authResponse.user!.id)
+        .single();
+
+    // 4. Mapear el rol de la base de datos a nuestro enum
+    UserRole userRole;
+    final String rolDb = userData['rol'];
+    switch (rolDb) {
+      case 'admin':
+        userRole = UserRole.admin;
         break;
-      case UserRole.doctor:
-        name = 'Dra. María González';
+      case 'doctor':
+        userRole = UserRole.doctor;
         break;
-      case UserRole.receptionist:
-        name = 'Ana Martínez';
+      case 'recepcionista':
+        userRole = UserRole.receptionist;
         break;
-      case UserRole.admin:
-        name = 'ADMINISTRADOR';
+      case 'paciente':
+      default:
+        userRole = UserRole.patient;
         break;
     }
 
-    _user = UserModel(id: '1', name: name, email: email, role: role);
+    // 5. Poblar el estado con los datos de la base
+    _user = UserModel(
+      id: userData['id'],
+      name: userData['nombre_completo'],
+      email: userData['correo'],
+      role: userRole,
+    );
+
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await Supabase.instance.client.auth.signOut();
     _user = null;
     notifyListeners();
   }
