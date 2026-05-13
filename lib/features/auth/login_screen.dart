@@ -97,20 +97,26 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!mounted) return;
     final provider = context.read<UserProvider>();
-    
+
     try {
       await provider.login(
-        _emailController.text.trim(), 
+        _emailController.text.trim(),
         _passwordController.text,
       );
-      
+
       if (!mounted) return;
       context.go(provider.user!.initialRoute);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '').replaceAll('AuthException(message: ', '').replaceAll(')', '')),
+          content: Text(
+            e
+                .toString()
+                .replaceAll('Exception: ', '')
+                .replaceAll('AuthException(message: ', '')
+                .replaceAll(')', ''),
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -307,8 +313,8 @@ class _LoginScreenState extends State<LoginScreen>
                                       _GlassInput(
                                         controller: _emailController,
                                         label: 'Telefono',
-                                        hint: '000-000-0000',
-                                        icon: Icons.phone_android_rounded,
+                                        hint: '555 123 4567',
+                                        icon: Icons.phone_outlined,
                                         keyboardType: TextInputType.phone,
                                         validator: (v) => v == null || v.isEmpty
                                             ? 'Ingresa tu telefono'
