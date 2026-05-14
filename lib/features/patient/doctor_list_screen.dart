@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 
 import 'dart:ui';
@@ -15,65 +16,79 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
   String _searchQuery = '';
   String _activeSpecialty = 'Todos';
 
-  static const _allDoctors = [
-    {
-      'name': 'Dra. María González',
-      'specialty': 'Cardiología',
-      'rating': '4.9',
-      'reviews': '127',
-      'availability': 'Hoy, 2:00 PM',
-      'image': 'assets/images/doctora1.png',
-      'id': '1',
-    },
-    {
-      'name': 'Dr. Carlos Ramírez',
-      'specialty': 'Medicina General',
-      'rating': '4.8',
-      'reviews': '98',
-      'availability': 'Mañana, 9:00 AM',
-      'image': 'assets/images/doctor1.jpg',
-      'id': '2',
-    },
-    {
-      'name': 'Dra. Ana Martínez',
-      'specialty': 'Dermatología',
-      'rating': '4.9',
-      'reviews': '156',
-      'availability': '28 Mar, 11:00 AM',
-      'image': 'assets/images/doctora2.png',
-      'id': '3',
-    },
-    {
-      'name': 'Dr. Luis Hernández',
-      'specialty': 'Pediatría',
-      'rating': '5.0',
-      'reviews': '203',
-      'availability': '29 Mar, 3:30 PM',
-      'image': 'assets/images/doctor2.jpg',
-      'id': '4',
-    },
-    {
-      'name': 'Dra. Sofia Torres',
-      'specialty': 'Ginecología',
-      'rating': '4.7',
-      'reviews': '89',
-      'availability': '30 Mar, 10:00 AM',
-      'image': 'assets/images/doctora3.jpg',
-      'id': '5',
-    },
-  ];
+  List<Map<String, String>> _allDoctors = [];
+  List<String> _specialties = ['Todos'];
+  bool _isLoading = true;
 
-  final _specialties = [
-    'Todos',
-    'Cardiología',
-    'Dermatología',
-    'Pediatría',
-    'Ginecología',
-    'Medicina General',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDoctors();
+  }
+
+  Future<void> _fetchDoctors() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('usuarios')
+          .select('id, nombre_completo, doctores(especialidad)')
+          .eq('rol', 'doctor');
+
+      final List<Map<String, String>> fetchedDoctors = [];
+      final Set<String> fetchedSpecialties = {'Todos'};
+
+      for (var user in response) {
+        final doctoresData = user['doctores'];
+        String specialty = 'General';
+        
+        if (doctoresData != null) {
+          if (doctoresData is List && doctoresData.isNotEmpty) {
+            specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
+          } else if (doctoresData is Map) {
+            specialty = doctoresData['especialidad']?.toString() ?? 'General';
+          }
+        }
+
+        fetchedSpecialties.add(specialty);
+
+        fetchedDoctors.add({
+          'id': user['id'].toString(),
+          'name': user['nombre_completo']?.toString() ?? 'Doctor',
+          'specialty': specialty,
+          'rating': '5.0', // Dato simulado
+          'reviews': '0',  // Dato simulado
+          'availability': 'Consultar disponibilidad',
+          'image': 'assets/images/doctor1.jpg', // Imagen por defecto
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _allDoctors = fetchedDoctors;
+          _specialties = fetchedSpecialties.toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error al obtener doctores: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AltheaColors.lightBg,
+        body: Center(
+          child: CircularProgressIndicator(color: AltheaColors.navy),
+        ),
+      );
+    }
+
     final filteredDoctors = _allDoctors.where((dr) {
       final matchesSearch =
           dr['name']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -344,20 +359,6 @@ class _DoctorCardState extends State<_DoctorCard> {
             children: [
               Row(
                 children: [
-                  // Avatar
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AltheaColors.lightCard,
-                      borderRadius: BorderRadius.circular(20),
-                      image: DecorationImage(
-                        image: AssetImage(d['image']!),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 20),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,31 +428,8 @@ class _DoctorCardState extends State<_DoctorCard> {
               const Divider(color: AltheaColors.borderLight, height: 1),
               const SizedBox(height: 16),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'DISPONIBLE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: AltheaColors.textSecondary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        d['availability']!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: AltheaColors.navy,
-                        ),
-                      ),
-                    ],
-                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,

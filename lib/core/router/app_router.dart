@@ -36,9 +36,17 @@ GoRouter createRouter(BuildContext context) {
       ),
       GoRoute(
         path: '/patient/book-appointment/:doctorId',
-        builder: (_, state) => AppointmentBookingScreen(
-          doctorId: state.pathParameters['doctorId'] ?? '',
-        ),
+        builder: (_, state) {
+          final extra = state.extra;
+          Map<String, dynamic>? doctorData;
+          if (extra is Map) {
+            doctorData = Map<String, dynamic>.from(extra);
+          }
+          return AppointmentBookingScreen(
+            doctorId: state.pathParameters['doctorId'] ?? '',
+            doctorData: doctorData,
+          );
+        },
       ),
       GoRoute(
         path: '/patient/appointments',
