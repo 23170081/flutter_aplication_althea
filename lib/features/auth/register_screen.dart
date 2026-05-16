@@ -20,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _phoneCtrl = TextEditingController();
   final _birthDateCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  String? _selectedBloodType;
   bool _showPassword = false;
   bool _isLoading = false;
 
@@ -70,7 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         phone: _phoneCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
-        birthDate: _birthDateCtrl.text.trim(),
+        birthDate: _birthDateCtrl.text.trim().split('/').reversed.join('-'),
+        bloodType: _selectedBloodType!,
       );
 
       if (!mounted) return;
@@ -333,11 +335,20 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             return 'Día inválido';
                                           }
                                           
+                                          final inputDate = DateTime(year!, month, day);
+                                          final today = DateTime.now();
+                                          final todayDateOnly = DateTime(today.year, today.month, today.day);
+                                          if (inputDate.isAfter(todayDateOnly)) {
+                                            return 'La fecha no puede ser en el futuro';
+                                          }
+                                          
                                           return null;
                                         },
                                       ),
                                       const SizedBox(height: 14),
                                       _buildPasswordField(),
+                                      const SizedBox(height: 14),
+                                      _buildDropdownField(),
                                       const SizedBox(height: 24),
 
                                       // Register Button
@@ -487,6 +498,83 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
             errorStyle: const TextStyle(color: AltheaColors.error),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tipo de sangre',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedBloodType,
+          validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+          dropdownColor: AltheaColors.darkBg,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.white.withOpacity(0.4),
+          ),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Selecciona tu tipo de sangre',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+            prefixIcon: Icon(
+              Icons.bloodtype_outlined,
+              color: Colors.white.withOpacity(0.4),
+              size: 20,
+            ),
+            filled: true,
+            fillColor: Colors.black.withOpacity(0.2),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(
+                color: AltheaColors.gold,
+                width: 1.5,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AltheaColors.error),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AltheaColors.error),
+            ),
+            errorStyle: const TextStyle(color: AltheaColors.error),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'A+', child: Text('A+')),
+            DropdownMenuItem(value: 'A-', child: Text('A-')),
+            DropdownMenuItem(value: 'B+', child: Text('B+')),
+            DropdownMenuItem(value: 'B-', child: Text('B-')),
+            DropdownMenuItem(value: 'O+', child: Text('O+')),
+            DropdownMenuItem(value: 'O-', child: Text('O-')),
+            DropdownMenuItem(value: 'AB+', child: Text('AB+')),
+            DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedBloodType = value;
+            });
+          },
         ),
       ],
     );

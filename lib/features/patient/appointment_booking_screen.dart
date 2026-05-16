@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:ui';
 
@@ -33,15 +34,181 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   String _expiry = '';
   String _cvv = '';
 
-  final _times = [
-    '9:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '2:00 PM',
-    '3:00 PM',
-    '4:00 PM',
-    '5:00 PM',
-  ];
+  List<Map<String, dynamic>> _sucursales = [];
+  Map<String, dynamic>? _selectedBranch;
+  List<Map<String, dynamic>> _horarios = [];
+  bool _isLoadingData = true;
+  List<String> _bookedTimes = [];
+  bool _isLoadingTimes = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDoctorSchedules();
+  }
+
+  Future<void> _fetchDoctorSchedules() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final data = await supabase
+          .from('horarios_doctor')
+          .select('''
+            id,
+            dia_semana,
+            hora_inicio,
+            hora_fin,
+            sucursales (
+              id,
+              nombre
+            )
+          ''')
+          .eq('doctor_id', widget.doctorId);
+
+      final List<Map<String, dynamic>> fetchedHorarios =
+          List<Map<String, dynamic>>.from(data);
+
+      final Map<String, Map<String, dynamic>> uniqueBranches = {};
+      for (var h in fetchedHorarios) {
+        final sucursal = h['sucursales'];
+        if (sucursal != null) {
+          uniqueBranches[sucursal['id']] = {
+            'id': sucursal['id'],
+            'nombre': sucursal['nombre'],
+          };
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _horarios = fetchedHorarios;
+          _sucursales = uniqueBranches.values.toList();
+          _isLoadingData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar horarios: $e')));
+      }
+    }
+  }
+
+  Future<void> _fetchBookedTimesForDate() async {
+    if (_selectedDate == null || _selectedBranch == null) return;
+
+    setState(() {
+      _isLoadingTimes = true;
+      _bookedTimes = [];
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+      
+      final data = await supabase
+          .from('citas')
+          .select('hora')
+          .eq('doctor_id', widget.doctorId)
+          .eq('sucursal_id', _selectedBranch!['id'])
+          .eq('fecha', dateFormatted)
+          .neq('estado', 'cancelada');
+
+      final List<String> booked = [];
+      for (var row in data) {
+        final timeString = row['hora'].toString();
+        final parts = timeString.split(':');
+        int h = int.parse(parts[0]);
+        int displayHour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+        String amPm = h >= 12 ? 'PM' : 'AM';
+        booked.add('$displayHour:00 $amPm');
+      }
+
+      if (mounted) {
+        setState(() {
+          _bookedTimes = booked;
+          _isLoadingTimes = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingTimes = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar citas: $e')),
+        );
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> get _currentBranchHorarios {
+    if (_selectedBranch == null) return [];
+    return _horarios
+        .where((h) => h['sucursales']['id'] == _selectedBranch!['id'])
+        .toList();
+  }
+
+  List<int> get _validSqlDays {
+    return _currentBranchHorarios
+        .map((h) => h['dia_semana'] as int)
+        .toSet()
+        .toList();
+  }
+
+  List<DateTime> _generateNext8Dates() {
+    final validDays = _validSqlDays;
+    if (validDays.isEmpty) return [];
+
+    List<DateTime> dates = [];
+    DateTime current = DateTime.now();
+    current = DateTime(current.year, current.month, current.day);
+
+    while (dates.length < 8) {
+      final sqlDay = current.weekday - 1;
+      if (validDays.contains(sqlDay)) {
+        dates.add(current);
+      }
+      current = current.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  List<String> get _times {
+    if (_selectedDate == null) return [];
+    final sqlDay = _selectedDate!.weekday - 1;
+    final horario = _currentBranchHorarios.firstWhere(
+      (h) => h['dia_semana'] == sqlDay,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (horario.isEmpty) return [];
+
+    final inicioParts = horario['hora_inicio'].toString().split(':');
+    final finParts = horario['hora_fin'].toString().split(':');
+
+    int startHour = int.parse(inicioParts[0]);
+    int endHour = int.parse(finParts[0]);
+
+    List<String> slots = [];
+    final now = DateTime.now();
+    final isToday = _selectedDate!.year == now.year &&
+                    _selectedDate!.month == now.month &&
+                    _selectedDate!.day == now.day;
+
+    for (int h = startHour; h < endHour; h++) {
+      if (isToday && h <= now.hour) {
+        continue; // Omitir horas que ya pasaron
+      }
+      int displayHour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+      String amPm = h >= 12 ? 'PM' : 'AM';
+      slots.add('$displayHour:00 $amPm');
+    }
+    return slots;
+  }
 
   // DEBUG FLAGS
   final bool _forceTimeTakenError = false;
@@ -53,34 +220,59 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       _error = null;
     });
 
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) throw Exception('No estás autenticado.');
 
-    if (_forceTimeTakenError) {
+      // 1. Formatear la hora (de "2:00 PM" a "14:00:00")
+      final timeParts = _selectedTime!.split(' ');
+      final hourStr = timeParts[0].split(':')[0];
+      int hour = int.parse(hourStr);
+      if (timeParts[1] == 'PM' && hour != 12) hour += 12;
+      if (timeParts[1] == 'AM' && hour == 12) hour = 0;
+      final timeFormatted = '${hour.toString().padLeft(2, '0')}:00:00';
+
+      // 2. Formatear la fecha
+      final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+
+      // 3. Insertar cita en Supabase
+      await supabase.from('citas').insert({
+        'usuario_id': user.id,
+        'doctor_id': widget.doctorId,
+        'sucursal_id': _selectedBranch!['id'],
+        'fecha': dateFormatted,
+        'hora': timeFormatted,
+        'estado': 'programada',
+      });
+
+      if (!mounted) return;
       setState(() {
-        _error =
-            "El horario seleccionado ya no está disponible. Por favor elige otro.";
+        _isProcessing = false;
+        _showConfirmation = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Ocurrió un error al agendar la cita: $e';
         _isProcessing = false;
       });
-      return;
-    } else if (_forcePaymentRejectedError && _paymentMethod == "card") {
-      setState(() {
-        _error =
-            "El pago fue rechazado por el banco. Por favor intenta con otra tarjeta.";
-        _isProcessing = false;
-      });
-      return;
     }
-
-    setState(() {
-      _isProcessing = false;
-      _showConfirmation = true;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     if (_showConfirmation) {
       return _buildConfirmationScreen();
+    }
+
+    if (_isLoadingData) {
+      return const Scaffold(
+        backgroundColor: AltheaColors.lightBg,
+        body: Center(
+          child: CircularProgressIndicator(color: AltheaColors.navy),
+        ),
+      );
     }
 
     final doctor =
@@ -160,21 +352,6 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            image: doctor['image'] != null
-                                ? DecorationImage(
-                                    image: AssetImage(doctor['image']!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,24 +387,6 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    color: AltheaColors.gold,
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    doctor['consultorio'] ?? 'Consultorio',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
@@ -244,218 +403,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Select Date
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AltheaColors.borderLight),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AltheaColors.lightBg,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AltheaColors.borderLight,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.calendar_month,
-                                color: AltheaColors.gold,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Selecciona una fecha',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: AltheaColors.navy,
-                                  ),
-                                ),
-                                Text(
-                                  'Próximos días disponibles',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AltheaColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(context).copyWith(
-                            dragDevices: {
-                              PointerDeviceKind.touch,
-                              PointerDeviceKind.mouse,
-                            },
-                          ),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
-                            ),
-                            child: Row(
-                              children: List.generate(5, (index) {
-                                final date = DateTime.now().add(
-                                  Duration(days: index + 1),
-                                );
-                                final isSelected =
-                                    _selectedDate?.day == date.day &&
-                                    _selectedDate?.month == date.month;
-                                final monthStr = DateFormat(
-                                  'MMM',
-                                  'es_MX',
-                                ).format(date).toUpperCase();
-                                final dayStr = DateFormat(
-                                  'EEE',
-                                  'es_MX',
-                                ).format(date).replaceAll('.', '');
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _selectedDate = date),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 200,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 16,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: isSelected
-                                            ? const LinearGradient(
-                                                colors: [
-                                                  AltheaColors.gold,
-                                                  AltheaColors.goldLight,
-                                                ],
-                                              )
-                                            : null,
-                                        color: isSelected ? null : Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? Colors.transparent
-                                              : AltheaColors.borderLight,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text(
-                                            monthStr,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w800,
-                                              color: isSelected
-                                                  ? Colors.white.withOpacity(
-                                                      0.8,
-                                                    )
-                                                  : AltheaColors.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${date.day}',
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w900,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : AltheaColors.navy,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            dayStr,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: isSelected
-                                                  ? Colors.white.withOpacity(
-                                                      0.9,
-                                                    )
-                                                  : AltheaColors.navy,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        GestureDetector(
-                          onTap: () async {
-                            final d = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now().add(
-                                const Duration(days: 1),
-                              ),
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(
-                                const Duration(days: 90),
-                              ),
-                            );
-                            if (d != null) setState(() => _selectedDate = d);
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: AltheaColors.lightBg,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AltheaColors.borderLight,
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 18,
-                                  color: AltheaColors.navy,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'O selecciona en el calendario',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AltheaColors.navy,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  // Select Time
-                  Opacity(
-                    opacity: _selectedDate != null ? 1.0 : 0.5,
-                    child: Container(
+                  // Branch Selection
+                  if (_sucursales.isNotEmpty) ...[
+                    Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -477,7 +427,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                   ),
                                 ),
                                 child: const Icon(
-                                  Icons.access_time,
+                                  Icons.store,
                                   color: AltheaColors.gold,
                                   size: 20,
                                 ),
@@ -487,7 +437,103 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Selecciona una hora',
+                                    'Selecciona una sucursal',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: AltheaColors.navy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: _sucursales.map((sucursal) {
+                              final isSelected =
+                                  _selectedBranch?['id'] == sucursal['id'];
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedBranch = sucursal;
+                                    _selectedDate = null;
+                                    _selectedTime = null;
+                                    _bookedTimes = [];
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AltheaColors.navy
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AltheaColors.navy
+                                          : AltheaColors.borderLight,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    sucursal['nombre'],
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AltheaColors.navy,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  if (_selectedBranch != null) ...[
+                    // Select Date
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AltheaColors.borderLight),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AltheaColors.lightBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AltheaColors.borderLight,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.calendar_month,
+                                  color: AltheaColors.gold,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Selecciona una fecha',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -495,7 +541,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'Horarios disponibles',
+                                    'Próximos días disponibles',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: AltheaColors.textSecondary,
@@ -506,49 +552,287 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: _times.map((time) {
-                              final isSelected = _selectedTime == time;
-                              return GestureDetector(
-                                onTap: _selectedDate != null
-                                    ? () => setState(() => _selectedTime = time)
-                                    : null,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AltheaColors.navy
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AltheaColors.navy
-                                          : AltheaColors.borderLight,
+                          ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              dragDevices: {
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.mouse,
+                              },
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
+                              child: Row(
+                                children: _generateNext8Dates().map((date) {
+                                  final isSelected =
+                                      _selectedDate?.day == date.day &&
+                                      _selectedDate?.month == date.month &&
+                                      _selectedDate?.year == date.year;
+                                  final monthStr = DateFormat(
+                                    'MMM',
+                                    'es_MX',
+                                  ).format(date).toUpperCase();
+                                  final dayStr = DateFormat(
+                                    'EEE',
+                                    'es_MX',
+                                  ).format(date).replaceAll('.', '');
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedDate = date;
+                                          _selectedTime = null;
+                                        });
+                                        _fetchBookedTimesForDate();
+                                      },
+                                      child: AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: isSelected
+                                              ? const LinearGradient(
+                                                  colors: [
+                                                    AltheaColors.gold,
+                                                    AltheaColors.goldLight,
+                                                  ],
+                                                )
+                                              : null,
+                                          color: isSelected
+                                              ? null
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? Colors.transparent
+                                                : AltheaColors.borderLight,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              monthStr,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: isSelected
+                                                    ? Colors.white.withOpacity(
+                                                        0.8,
+                                                      )
+                                                    : AltheaColors
+                                                          .textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${date.day}',
+                                              style: TextStyle(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.w900,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : AltheaColors.navy,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              dayStr,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: isSelected
+                                                    ? Colors.white.withOpacity(
+                                                        0.9,
+                                                      )
+                                                    : AltheaColors.navy,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap: () async {
+                              final validDays = _validSqlDays;
+                              final d = await showDatePicker(
+                                context: context,
+                                initialDate: _selectedDate ?? DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 90),
+                                ),
+                                selectableDayPredicate: (DateTime val) {
+                                  final sqlDay = val.weekday - 1;
+                                  return validDays.contains(sqlDay);
+                                },
+                              );
+                              if (d != null) {
+                                setState(() {
+                                  _selectedDate = d;
+                                  _selectedTime = null;
+                                });
+                                _fetchBookedTimesForDate();
+                              }
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: AltheaColors.lightBg,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AltheaColors.borderLight,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 18,
+                                    color: AltheaColors.navy,
                                   ),
-                                  child: Text(
-                                    time,
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'O selecciona en el calendario',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AltheaColors.navy,
+                                      color: AltheaColors.navy,
                                     ),
                                   ),
-                                ),
-                              );
-                            }).toList(),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
+
+                    const SizedBox(height: 24),
+                    // Select Time
+                    Opacity(
+                      opacity: _selectedDate != null ? 1.0 : 0.5,
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AltheaColors.borderLight),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AltheaColors.lightBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AltheaColors.borderLight,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.access_time,
+                                    color: AltheaColors.gold,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Selecciona una hora',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: AltheaColors.navy,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Horarios disponibles',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AltheaColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            if (_isLoadingTimes)
+                              const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: CircularProgressIndicator(color: AltheaColors.navy),
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: _times.map((time) {
+                                  final isBooked = _bookedTimes.contains(time);
+                                  final isSelected = _selectedTime == time;
+                                  return GestureDetector(
+                                    onTap: (_selectedDate != null && !isBooked)
+                                        ? () =>
+                                              setState(() => _selectedTime = time)
+                                        : null,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isBooked
+                                            ? AltheaColors.lightBg
+                                            : (isSelected ? AltheaColors.navy : Colors.white),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isBooked
+                                              ? AltheaColors.borderLight
+                                              : (isSelected ? AltheaColors.navy : AltheaColors.borderLight),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        time,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: isBooked
+                                              ? AltheaColors.textSecondary.withOpacity(0.5)
+                                              : (isSelected ? Colors.white : AltheaColors.navy),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ], // End if _selectedBranch != null
 
                   const SizedBox(height: 24),
                   // Payment Method
