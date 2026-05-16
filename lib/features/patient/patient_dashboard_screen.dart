@@ -100,6 +100,54 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
+  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
+    final dateTime = appointment['dateTime'] as DateTime;
+    final timeDiff = dateTime.difference(DateTime.now());
+    final isMoreThanOneDay = timeDiff.inHours > 24;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar Cita', style: TextStyle(color: AltheaColors.navy, fontWeight: FontWeight.bold)),
+        content: Text(
+          isMoreThanOneDay
+              ? '¿Estás seguro de cancelar esta cita? Al faltar más de un día, se te hará el reembolso del anticipo dado.'
+              : '¿Estás seguro de cancelar esta cita? Al faltar menos de un día, no habrá reembolso del anticipo.',
+          style: const TextStyle(color: AltheaColors.textSecondary),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Volver', style: TextStyle(color: AltheaColors.textSecondary, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Sí, Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase.from('citas').update({'estado': 'cancelada'}).eq('id', appointment['id']);
+        _fetchUpcomingAppointments();
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>().user;
@@ -160,38 +208,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Próximas Citas',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AltheaColors.navy,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => context.go('/patient/appointments'),
-                        child: const Row(
-                          children: [
-                            Text(
-                              'Ver todas',
-                              style: TextStyle(
-                                color: AltheaColors.gold,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: AltheaColors.gold,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Próximas Citas',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AltheaColors.navy,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_isLoading)
@@ -210,7 +233,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ..._upcomingAppointments.map(
                       (a) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _AppointmentCard(appointment: a),
+                        child: _AppointmentCard(
+                          appointment: a,
+                          onCancel: () => _cancelAppointment(a),
+                        ),
                       ),
                     ),
                 ],
@@ -363,7 +389,8 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
 
 class _AppointmentCard extends StatelessWidget {
   final Map<String, dynamic> appointment;
-  const _AppointmentCard({required this.appointment});
+  final VoidCallback? onCancel;
+  const _AppointmentCard({required this.appointment, this.onCancel});
 
   @override
   Widget build(BuildContext context) {
@@ -405,16 +432,40 @@ class _AppointmentCard extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AltheaColors.gold.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Próxima',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AltheaColors.gold),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AltheaColors.gold.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Próxima',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AltheaColors.gold),
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: onCancel,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
