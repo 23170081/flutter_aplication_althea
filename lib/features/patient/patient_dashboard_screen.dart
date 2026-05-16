@@ -2,34 +2,107 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:flutter_application_althea/shared/widgets/althea_header.dart';
 
-class PatientDashboardScreen extends StatelessWidget {
+class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
+
+  @override
+  State<PatientDashboardScreen> createState() => _PatientDashboardScreenState();
+}
+
+class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _upcomingAppointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUpcomingAppointments();
+  }
+
+  Future<void> _fetchUpcomingAppointments() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) throw Exception('No autenticado');
+
+      final data = await supabase.from('citas').select('''
+        id,
+        fecha,
+        hora,
+        estado,
+        doctores (
+          especialidad,
+          usuarios (
+            nombre_completo
+          )
+        ),
+        sucursales (
+          nombre
+        )
+      ''').eq('usuario_id', user.id).eq('estado', 'programada');
+
+      final now = DateTime.now();
+      List<Map<String, dynamic>> upcoming = [];
+
+      for (var row in data) {
+        final dateStr = row['fecha'].toString();
+        final timeStr = row['hora'].toString();
+        
+        final dateTime = DateTime.parse('${dateStr}T$timeStr');
+        
+        if (dateTime.isAfter(now)) {
+          String doctorName = 'Doctor';
+          String specialty = 'Especialidad';
+          String branchName = 'Sucursal';
+          
+          if (row['sucursales'] != null) {
+            branchName = row['sucursales']['nombre'] ?? 'Sucursal';
+          }
+          
+          if (row['doctores'] != null) {
+            specialty = row['doctores']['especialidad'] ?? 'Especialidad';
+            if (row['doctores']['usuarios'] != null) {
+              doctorName = row['doctores']['usuarios']['nombre_completo'] ?? 'Doctor';
+            }
+          }
+
+          upcoming.add({
+            'id': row['id'],
+            'doctor': doctorName,
+            'specialty': specialty,
+            'branch': branchName,
+            'dateTime': dateTime,
+            'dateFormatted': DateFormat('dd MMM', 'es_MX').format(dateTime),
+            'timeFormatted': DateFormat('h:mm a').format(dateTime),
+            'status': 'upcoming',
+          });
+        }
+      }
+
+      upcoming.sort((a, b) => (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
+
+      if (mounted) {
+        setState(() {
+          _upcomingAppointments = upcoming;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>().user;
-
-    final appointments = [
-      {
-        'doctor': 'Dra. María González',
-        'specialty': 'Cardiología',
-        'date': DateTime(2026, 3, 28),
-        'time': '10:00 AM',
-        'consultorio': 'Consultorio 301',
-      },
-      {
-        'doctor': 'Dr. Carlos Ramírez',
-        'specialty': 'Medicina General',
-        'date': DateTime(2026, 4, 2),
-        'time': '3:30 PM',
-        'consultorio': 'Consultorio 105',
-      },
-    ];
 
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
@@ -121,12 +194,25 @@ class PatientDashboardScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  ...appointments.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _AppointmentCard(appointment: a),
+                  if (_isLoading)
+                    const Center(child: CircularProgressIndicator(color: AltheaColors.navy))
+                  else if (_upcomingAppointments.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'No tienes citas próximas',
+                          style: TextStyle(fontSize: 16, color: AltheaColors.textSecondary, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._upcomingAppointments.map(
+                      (a) => Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _AppointmentCard(appointment: a),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -275,128 +361,59 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
 
 // ─── Appointment Card ────────────────────────────────────────
 
-class _AppointmentCard extends StatefulWidget {
+class _AppointmentCard extends StatelessWidget {
   final Map<String, dynamic> appointment;
   const _AppointmentCard({required this.appointment});
-  @override
-  State<_AppointmentCard> createState() => _AppointmentCardState();
-}
 
-class _AppointmentCardState extends State<_AppointmentCard> {
-  bool _hovered = false;
   @override
   Widget build(BuildContext context) {
-    final a = widget.appointment;
-    final date = a['date'] as DateTime;
-    final formatted = DateFormat('dd MMM', 'es_MX').format(date);
+    final a = appointment;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: _hovered
-                ? AltheaColors.gold.withOpacity(0.4)
-                : AltheaColors.borderLight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(_hovered ? 0.06 : 0.03),
-              blurRadius: _hovered ? 12 : 4,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Avatar
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AltheaColors.lightCard,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                color: AltheaColors.gold,
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    a['doctor'] as String,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: AltheaColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    a['specialty'] as String,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AltheaColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Date & Time
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _InfoChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: formatted,
-                ),
-                const SizedBox(height: 8),
-                _InfoChip(
-                  icon: Icons.access_time_rounded,
-                  label: a['time'] as String,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoChip({required this.icon, required this.label});
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AltheaColors.lightCard,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AltheaColors.borderLight),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AltheaColors.gold, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AltheaColors.navy,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  a['doctor']!, 
+                  style: const TextStyle(
+                    fontSize: 17, 
+                    fontWeight: FontWeight.w800, 
+                    color: AltheaColors.navy, 
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(a['specialty']!, style: const TextStyle(fontSize: 14, color: AltheaColors.textSecondary, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 4),
+                Text(a['branch']!, style: const TextStyle(fontSize: 13, color: AltheaColors.navy, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[400]),
+                    const SizedBox(width: 6),
+                    Text('${a['dateFormatted']} · ${a['timeFormatted']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AltheaColors.navy)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AltheaColors.gold.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Próxima',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AltheaColors.gold),
             ),
           ),
         ],

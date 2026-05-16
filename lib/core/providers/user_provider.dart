@@ -82,6 +82,7 @@ class UserProvider extends ChangeNotifier {
     String? email,
     required String password,
     String? birthDate,
+    required String bloodType,
   }) async {
     final supabase = Supabase.instance.client;
 
@@ -118,6 +119,7 @@ class UserProvider extends ChangeNotifier {
       'correo': finalEmail,
       'telefono': phone.trim(),
       'fecha_nacimiento': birthDate?.trim(),
+      'tipo_sangre': bloodType,
       'rol': 'paciente',
     });
 
