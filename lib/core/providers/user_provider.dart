@@ -68,7 +68,7 @@ class UserProvider extends ChangeNotifier {
       email: userData['correo'],
       phone: userData['telefono'],
       birthDate: userData['fecha_nacimiento'], // Puede ser null
-      bloodType: userData['tipo_sangre'],      // Puede ser null
+      bloodType: userData['tipo_sangre'], // Puede ser null
       role: userRole,
     );
 
@@ -130,6 +130,84 @@ class UserProvider extends ChangeNotifier {
   Future<void> logout() async {
     await Supabase.instance.client.auth.signOut();
     _user = null;
+    notifyListeners();
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required String phone,
+    String? email,
+    String? birthDate,
+    String? bloodType,
+  }) async {
+    if (_user == null) return;
+
+    final supabase = Supabase.instance.client;
+    final newEmail = email?.trim() ?? _user!.email;
+    final newPhone = phone.trim();
+
+    // Validar teléfono duplicado si cambió
+    if (newPhone != _user!.phone) {
+      final existingPhone = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('telefono', newPhone)
+          .maybeSingle();
+      if (existingPhone != null) {
+        throw Exception('Este número de teléfono ya está registrado.');
+      }
+    }
+
+    String finalEmailToSave = _user!.email;
+
+    // Si el correo cambió
+    if (newEmail != _user!.email) {
+      // Validar correo duplicado
+      final existingEmail = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('correo', newEmail)
+          .maybeSingle();
+      if (existingEmail != null) {
+        throw Exception('Este correo ya está registrado.');
+      }
+
+      final authRes = await supabase.auth.updateUser(
+        UserAttributes(email: newEmail),
+      );
+      if (authRes.user == null) {
+        throw Exception('Error al actualizar el correo de autenticación.');
+      }
+      
+      // Si Supabase requiere confirmación de correo, authRes.user.email no cambiará de inmediato
+      if (authRes.user!.email == newEmail) {
+        finalEmailToSave = newEmail;
+      } else {
+        throw Exception('Se ha enviado un correo de confirmación a $newEmail. Por favor confírmalo antes de que se actualice en tu perfil.');
+      }
+    }
+
+    await supabase
+        .from('usuarios')
+        .update({
+          'nombre_completo': name.trim(),
+          'correo': finalEmailToSave,
+          'telefono': newPhone,
+          'fecha_nacimiento': birthDate?.trim(),
+          'tipo_sangre': bloodType?.trim(),
+        })
+        .eq('id', _user!.id);
+
+    _user = UserModel(
+      id: _user!.id,
+      name: name.trim(),
+      email: finalEmailToSave,
+      phone: newPhone,
+      birthDate: birthDate?.trim(),
+      bloodType: bloodType?.trim(),
+      role: _user!.role,
+    );
+
     notifyListeners();
   }
 }

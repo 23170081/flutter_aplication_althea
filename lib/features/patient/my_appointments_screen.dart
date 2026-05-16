@@ -91,11 +91,23 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         }
       }
 
-      // Sort upcoming: soonest first
-      upcoming.sort((a, b) => (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
+      // Sort upcoming: soonest first, but cancelled at the bottom
+      upcoming.sort((a, b) {
+        final aIsCancelled = a['status'] == 'cancelada';
+        final bIsCancelled = b['status'] == 'cancelada';
+        if (aIsCancelled && !bIsCancelled) return 1;
+        if (!aIsCancelled && bIsCancelled) return -1;
+        return (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime);
+      });
       
-      // Sort past: most recent first
-      past.sort((a, b) => (b['dateTime'] as DateTime).compareTo(a['dateTime'] as DateTime));
+      // Sort past: most recent first, but cancelled at the bottom
+      past.sort((a, b) {
+        final aIsCancelled = a['status'] == 'cancelada';
+        final bIsCancelled = b['status'] == 'cancelada';
+        if (aIsCancelled && !bIsCancelled) return 1;
+        if (!aIsCancelled && bIsCancelled) return -1;
+        return (b['dateTime'] as DateTime).compareTo(a['dateTime'] as DateTime);
+      });
 
       if (mounted) {
         setState(() {
@@ -110,6 +122,54 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al cargar citas: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
+    final dateTime = appointment['dateTime'] as DateTime;
+    final timeDiff = dateTime.difference(DateTime.now());
+    final isMoreThanOneDay = timeDiff.inHours > 24;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar Cita', style: TextStyle(color: AltheaColors.navy, fontWeight: FontWeight.bold)),
+        content: Text(
+          isMoreThanOneDay
+              ? '¿Estás seguro de cancelar esta cita? Al faltar más de un día, se te hará el reembolso del anticipo dado.'
+              : '¿Estás seguro de cancelar esta cita? Al faltar menos de un día, no habrá reembolso del anticipo.',
+          style: const TextStyle(color: AltheaColors.textSecondary),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Volver', style: TextStyle(color: AltheaColors.textSecondary, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Sí, Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase.from('citas').update({'estado': 'cancelada'}).eq('id', appointment['id']);
+        _fetchAppointments();
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
+        }
       }
     }
   }
@@ -200,16 +260,42 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: badgeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                badgeText,
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: badgeColor),
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: badgeColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    badgeText,
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: badgeColor),
+                                  ),
+                                ),
+                                if (isUpcoming && !isCancelled) ...[
+                                  const SizedBox(height: 8),
+                                  GestureDetector(
+                                    onTap: () => _cancelAppointment(a),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'Cancelar',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),

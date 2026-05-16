@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
+import 'package:flutter_application_althea/core/models/user_model.dart';
 
 class PatientProfileScreen extends StatelessWidget {
   const PatientProfileScreen({super.key});
@@ -66,6 +67,21 @@ class PatientProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('Editar Información'),
+                      style: ElevatedButton.styleFrom(backgroundColor: AltheaColors.navy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      onPressed: () { 
+                        if (user != null) {
+                          showDialog(context: context, builder: (_) => _EditProfileDialog(user: user));
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
                       icon: const Icon(Icons.logout_rounded),
                       label: const Text('Cerrar Sesión'),
                       style: ElevatedButton.styleFrom(backgroundColor: AltheaColors.error, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
@@ -107,6 +123,170 @@ class _InfoRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  final UserModel user;
+  const _EditProfileDialog({required this.user});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController nameCtrl;
+  late TextEditingController emailCtrl;
+  late TextEditingController phoneCtrl;
+  late TextEditingController birthCtrl;
+  String? _selectedBloodType;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    nameCtrl = TextEditingController(text: widget.user.name);
+    emailCtrl = TextEditingController(text: widget.user.email);
+    phoneCtrl = TextEditingController(text: widget.user.phone);
+    
+    final bd = widget.user.birthDate ?? '';
+    final displayBd = bd.contains('-') ? bd.split('-').reversed.join('/') : bd;
+    birthCtrl = TextEditingController(text: displayBd);
+    
+    final validTypes = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+    if (widget.user.bloodType != null && validTypes.contains(widget.user.bloodType)) {
+      _selectedBloodType = widget.user.bloodType;
+    }
+  }
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    emailCtrl.dispose();
+    phoneCtrl.dispose();
+    birthCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      final birthText = birthCtrl.text.trim();
+      final dbBirthDate = birthText.contains('/') ? birthText.split('/').reversed.join('-') : birthText;
+
+      await context.read<UserProvider>().updateProfile(
+        name: nameCtrl.text,
+        phone: phoneCtrl.text,
+        email: emailCtrl.text,
+        birthDate: dbBirthDate,
+        bloodType: _selectedBloodType,
+      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar Información', style: TextStyle(color: AltheaColors.navy, fontWeight: FontWeight.bold)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl, 
+                decoration: const InputDecoration(labelText: 'Nombre Completo'),
+                validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+              ),
+              TextFormField(
+                controller: emailCtrl, 
+                decoration: const InputDecoration(labelText: 'Correo'),
+                keyboardType: TextInputType.emailAddress,
+                enabled: false,
+                validator: (v) {
+                  if (v != null && v.isNotEmpty) {
+                    final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!regex.hasMatch(v)) return 'Correo inválido';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: phoneCtrl, 
+                decoration: const InputDecoration(labelText: 'Teléfono'),
+                keyboardType: TextInputType.phone,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Campo requerido';
+                  final digitsOnly = v.replaceAll(RegExp(r'\D'), '');
+                  if (digitsOnly.length != 10) return 'Debe tener exactamente 10 dígitos';
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: birthCtrl, 
+                decoration: const InputDecoration(labelText: 'Nacimiento (DD/MM/YYYY)'),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return null;
+                  final regex = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+                  final match = regex.firstMatch(v);
+                  if (match == null) return 'Usa formato DD/MM/YYYY';
+                  return null;
+                },
+              ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedBloodType,
+              decoration: const InputDecoration(labelText: 'Tipo de Sangre'),
+              items: const [
+                DropdownMenuItem(value: 'A+', child: Text('A+')),
+                DropdownMenuItem(value: 'A-', child: Text('A-')),
+                DropdownMenuItem(value: 'B+', child: Text('B+')),
+                DropdownMenuItem(value: 'B-', child: Text('B-')),
+                DropdownMenuItem(value: 'O+', child: Text('O+')),
+                DropdownMenuItem(value: 'O-', child: Text('O-')),
+                DropdownMenuItem(value: 'AB+', child: Text('AB+')),
+                DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedBloodType = value;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar', style: TextStyle(color: AltheaColors.textSecondary, fontWeight: FontWeight.bold)),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AltheaColors.navy,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: _isLoading 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Aceptar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
     );
   }
 }

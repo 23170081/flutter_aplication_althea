@@ -1,38 +1,172 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:flutter_application_althea/shared/widgets/althea_header.dart';
 
-class DoctorDashboardScreen extends StatelessWidget {
+class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
+
+  @override
+  State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+}
+
+class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
+  int _todayCount = 0;
+  int _weekCount = 0;
+  int _uniquePatientsCount = 0;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _todayAppointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    try {
+      final user = context.read<UserProvider>().user;
+      if (user == null) return;
+
+      final supabase = Supabase.instance.client;
+      final now = DateTime.now();
+
+      final doctorData = await supabase
+          .from('doctores')
+          .select('id')
+          .eq('usuario_id', user.id)
+          .maybeSingle();
+
+      if (doctorData == null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se encontró el perfil de doctor asociado a este usuario.')),
+          );
+        }
+        return;
+      }
+      final doctorId = doctorData['id'];
+
+      final data = await supabase
+          .from('citas')
+          .select('''
+            id,
+            fecha,
+            hora,
+            estado,
+            usuarios (
+              id,
+              nombre_completo
+            ),
+            sucursales (
+              nombre
+            )
+          ''')
+          .eq('doctor_id', doctorId);
+
+      final List<dynamic> citas = data as List<dynamic>;
+
+      int todayCount = 0;
+      int weekCount = 0;
+      Set<String> uniquePatients = {};
+      List<Map<String, dynamic>> todayAppointmentsList = [];
+
+      final todayAtMidnight = DateTime(now.year, now.month, now.day);
+      final startOfWeek = todayAtMidnight.subtract(
+        Duration(days: todayAtMidnight.weekday - 1),
+      );
+      final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+      for (var c in citas) {
+        final status = (c['estado'] as String?)?.toLowerCase().trim() ?? '';
+        if (status == 'cancelada') continue;
+
+        final dateStr = c['fecha'] as String;
+        final timeStr = c['hora'] as String;
+        final parts = dateStr.split('-');
+        if (parts.length != 3) continue;
+
+        final timeParts = timeStr.split(':');
+        int hour = 0;
+        int minute = 0;
+        if (timeParts.length >= 2) {
+          hour = int.tryParse(timeParts[0]) ?? 0;
+          minute = int.tryParse(timeParts[1]) ?? 0;
+        }
+
+        final aptDateTime = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          int.parse(parts[2]),
+          hour,
+          minute,
+        );
+        final aptDateAtMidnight = DateTime(
+          aptDateTime.year,
+          aptDateTime.month,
+          aptDateTime.day,
+        );
+
+        final isToday = aptDateAtMidnight.isAtSameMomentAs(todayAtMidnight);
+        final isThisWeek =
+            !aptDateAtMidnight.isBefore(startOfWeek) &&
+            !aptDateAtMidnight.isAfter(endOfWeek);
+
+        if (status != 'terminada' && status != 'cancelada') {
+          if (isToday) todayCount++;
+          if (isThisWeek && !aptDateAtMidnight.isBefore(todayAtMidnight)) weekCount++;
+        }
+
+        if (c['usuarios'] != null && c['usuarios']['id'] != null) {
+          uniquePatients.add(c['usuarios']['id'].toString());
+        } else if (c['usuarios'] != null &&
+            c['usuarios']['nombre_completo'] != null) {
+          uniquePatients.add(c['usuarios']['nombre_completo']);
+        }
+
+        if (isToday && (status == 'programada' || status == 'pendiente')) {
+          todayAppointmentsList.add({
+            'patient': c['usuarios']?['nombre_completo'] ?? 'Paciente',
+            'time': c['hora'],
+            'type': c['sucursales']?['nombre'] ?? 'Consulta',
+            'status': 'pending',
+          });
+        }
+      }
+
+      todayAppointmentsList.sort((a, b) {
+        final timeA = a['time'] as String;
+        final timeB = b['time'] as String;
+        return timeA.compareTo(timeB);
+      });
+
+      if (mounted) {
+        setState(() {
+          _todayCount = todayCount;
+          _weekCount = weekCount;
+          _uniquePatientsCount = uniquePatients.length;
+          _todayAppointments = todayAppointmentsList;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar datos: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>().user;
-
-    final todayAppointments = [
-      {
-        'patient': 'Juan Pérez',
-        'time': '9:00 AM',
-        'type': 'Primera consulta',
-        'status': 'completed',
-      },
-      {
-        'patient': 'María López',
-        'time': '10:30 AM',
-        'type': 'Seguimiento',
-        'status': 'pending',
-      },
-      {
-        'patient': 'Carlos Gómez',
-        'time': '2:00 PM',
-        'type': 'Control',
-        'status': 'pending',
-      },
-    ];
 
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
@@ -78,16 +212,19 @@ class DoctorDashboardScreen extends StatelessWidget {
                     child: Row(
                       children: [
                         _StatItem(
-                          value: '${todayAppointments.length}',
+                          value: _isLoading ? '-' : '$_todayCount',
                           label: 'Citas Hoy',
                           isHighlighted: true,
                         ),
                         _verticalDivider(),
-                        const _StatItem(value: '8', label: 'Esta Semana'),
+                        _StatItem(
+                          value: _isLoading ? '-' : '$_weekCount',
+                          label: 'Esta Semana',
+                        ),
                         _verticalDivider(),
-                        const _StatItem(
-                          value: '32',
-                          label: 'Nuevos\nPacientes',
+                        _StatItem(
+                          value: _isLoading ? '-' : '$_uniquePatientsCount',
+                          label: 'Pacientes\nHistóricos',
                         ),
                       ],
                     ),
@@ -135,17 +272,29 @@ class DoctorDashboardScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  ...todayAppointments.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _AppointmentItem(
-                        appointment: a,
-                        onViewRecord: () => context.go(
-                          '/doctor/medical-record?patient=${Uri.encodeComponent(a['patient']!)}',
+                  if (_isLoading)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: AltheaColors.navy,
+                      ),
+                    )
+                  else if (_todayAppointments.isEmpty)
+                    const Text(
+                      'No tienes citas para hoy.',
+                      style: TextStyle(color: AltheaColors.textSecondary),
+                    )
+                  else
+                    ..._todayAppointments.map(
+                      (a) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _AppointmentItem(
+                          appointment: a,
+                          onViewRecord: () => context.go(
+                            '/doctor/medical-record?patient=${Uri.encodeComponent(a['patient']!)}',
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 20),
 
                   // Quick Actions
@@ -242,8 +391,17 @@ class _StatItem extends StatelessWidget {
 }
 
 class _AppointmentItem extends StatelessWidget {
-  final Map<String, String> appointment;
+  final Map<String, dynamic> appointment;
   final VoidCallback onViewRecord;
+
+  String _formatTimeStr(String time) {
+    final parts = time.split(':');
+    if (parts.length >= 2) {
+      return '${parts[0]}:${parts[1]}';
+    }
+    return time;
+  }
+
   const _AppointmentItem({
     required this.appointment,
     required this.onViewRecord,
@@ -260,24 +418,6 @@ class _AppointmentItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: isCompleted
-                  ? AltheaColors.lightCard
-                  : AltheaColors.gold.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.person_rounded,
-              color: isCompleted
-                  ? AltheaColors.textSecondary
-                  : AltheaColors.gold,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +452,7 @@ class _AppointmentItem extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                appointment['time']!,
+                _formatTimeStr(appointment['time'] as String),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
