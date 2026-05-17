@@ -123,7 +123,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
           'patient': c['usuarios']?['nombre_completo'] ?? 'Paciente',
           'type': c['sucursales']?['nombre'] ?? 'Consulta',
           'isCompleted': status == 'terminada',
-        });
+        }); //Hola
       }
 
       apps.sort((a, b) => (a['time'] as String).compareTo(b['time'] as String));
