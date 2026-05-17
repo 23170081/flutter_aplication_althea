@@ -99,7 +99,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
             id,
             hora,
             estado,
-            usuarios (
+            usuarios:usuarios!citas_usuario_id_fkey (
               nombre_completo
             ),
             sucursales (
@@ -258,10 +258,10 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
                               (d) => _workingDays.contains(d.weekday - 1),
                               orElse: () => _selectedDay,
                             ),
-                      firstDate: DateTime.now().subtract(
+                      firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day).subtract(
                         const Duration(days: 30),
                       ),
-                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                      lastDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day).add(const Duration(days: 90)),
                       onDateChanged: (d) {
                         _selectedDay = d;
                         _fetchAppointmentsForDate(d);

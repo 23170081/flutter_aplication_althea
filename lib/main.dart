@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
+import 'package:flutter_application_althea/core/providers/notification_provider.dart';
 import 'package:flutter_application_althea/core/router/app_router.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -21,8 +22,11 @@ void main() async {
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => UserProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+      ],
       child: const AltheaApp(),
     ),
   );

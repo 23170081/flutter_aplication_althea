@@ -59,7 +59,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             fecha,
             hora,
             estado,
-            usuarios (
+            usuarios:usuarios!citas_usuario_id_fkey (
               id,
               nombre_completo
             ),

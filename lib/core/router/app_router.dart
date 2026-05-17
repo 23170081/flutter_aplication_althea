@@ -17,9 +17,13 @@ import 'package:flutter_application_althea/features/receptionist/search_patient_
 import 'package:flutter_application_althea/features/receptionist/book_for_patient_screen.dart';
 import 'package:flutter_application_althea/features/admin/admin_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/admin/branch_management_screen.dart';
+import 'package:flutter_application_althea/features/notifications/notifications_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter(BuildContext context) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (_, _) => const LoginScreen()),
@@ -109,6 +113,12 @@ GoRouter createRouter(BuildContext context) {
       GoRoute(
         path: '/admin/add-branch',
         builder: (_, _) => const AddBranchScreen(),
+      ),
+
+      // Notifications
+      GoRoute(
+        path: '/notifications',
+        builder: (_, _) => const NotificationsScreen(),
       ),
     ],
   );

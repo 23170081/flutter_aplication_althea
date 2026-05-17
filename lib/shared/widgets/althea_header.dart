@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:flutter_application_althea/core/providers/notification_provider.dart';
 
 /// Shared curved header for all dashboards (matches TS gradient header)
 class AltheaHeader extends StatelessWidget {
@@ -24,6 +27,8 @@ class AltheaHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = context.watch<NotificationProvider>().unreadCount;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -127,9 +132,27 @@ class AltheaHeader extends StatelessWidget {
                       // Actions
                       Row(
                         children: [
-                          _HeaderIconButton(
-                            icon: Icons.notifications_outlined,
-                            onTap: onNotifications ?? () {},
+                          Stack(
+                            children: [
+                              _HeaderIconButton(
+                                icon: Icons.notifications_outlined,
+                                onTap: onNotifications ?? () => context.push('/notifications'),
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  top: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: AltheaColors.navy, width: 2),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(width: 8),
                           _HeaderIconButton(

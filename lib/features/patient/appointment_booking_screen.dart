@@ -108,7 +108,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
     try {
       final supabase = Supabase.instance.client;
       final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-      
+
       final data = await supabase
           .from('citas')
           .select('hora')
@@ -138,9 +138,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         setState(() {
           _isLoadingTimes = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar citas: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar citas: $e')));
       }
     }
   }
@@ -195,9 +195,10 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
 
     List<String> slots = [];
     final now = DateTime.now();
-    final isToday = _selectedDate!.year == now.year &&
-                    _selectedDate!.month == now.month &&
-                    _selectedDate!.day == now.day;
+    final isToday =
+        _selectedDate!.year == now.year &&
+        _selectedDate!.month == now.month &&
+        _selectedDate!.day == now.day;
 
     for (int h = startHour; h < endHour; h++) {
       if (isToday && h <= now.hour) {
@@ -670,13 +671,36 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                           GestureDetector(
                             onTap: () async {
                               final validDays = _validSqlDays;
+                              final now = DateTime.now();
+                              final today = DateTime(
+                                now.year,
+                                now.month,
+                                now.day,
+                              );
+
+                              // Encontrar una fecha inicial válida que cumpla con el predicado para evitar crash
+                              DateTime initial = _selectedDate ?? today;
+                              if (!validDays.contains(initial.weekday - 1)) {
+                                initial = today;
+                                while (!validDays.contains(
+                                  initial.weekday - 1,
+                                )) {
+                                  initial = initial.add(
+                                    const Duration(days: 1),
+                                  );
+                                  if (validDays.isEmpty ||
+                                      initial.difference(today).inDays > 30) {
+                                    initial = today;
+                                    break;
+                                  }
+                                }
+                              }
+
                               final d = await showDatePicker(
                                 context: context,
-                                initialDate: _selectedDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(
-                                  const Duration(days: 90),
-                                ),
+                                initialDate: initial,
+                                firstDate: today,
+                                lastDate: today.add(const Duration(days: 90)),
                                 selectableDayPredicate: (DateTime val) {
                                   final sqlDay = val.weekday - 1;
                                   return validDays.contains(sqlDay);
@@ -783,7 +807,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                               const Padding(
                                 padding: EdgeInsets.all(16.0),
                                 child: Center(
-                                  child: CircularProgressIndicator(color: AltheaColors.navy),
+                                  child: CircularProgressIndicator(
+                                    color: AltheaColors.navy,
+                                  ),
                                 ),
                               )
                             else
@@ -795,11 +821,14 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                   final isSelected = _selectedTime == time;
                                   return GestureDetector(
                                     onTap: (_selectedDate != null && !isBooked)
-                                        ? () =>
-                                              setState(() => _selectedTime = time)
+                                        ? () => setState(
+                                            () => _selectedTime = time,
+                                          )
                                         : null,
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
                                         vertical: 12,
@@ -807,12 +836,16 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                       decoration: BoxDecoration(
                                         color: isBooked
                                             ? AltheaColors.lightBg
-                                            : (isSelected ? AltheaColors.navy : Colors.white),
+                                            : (isSelected
+                                                  ? AltheaColors.navy
+                                                  : Colors.white),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
                                           color: isBooked
                                               ? AltheaColors.borderLight
-                                              : (isSelected ? AltheaColors.navy : AltheaColors.borderLight),
+                                              : (isSelected
+                                                    ? AltheaColors.navy
+                                                    : AltheaColors.borderLight),
                                         ),
                                       ),
                                       child: Text(
@@ -820,8 +853,11 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
                                           color: isBooked
-                                              ? AltheaColors.textSecondary.withOpacity(0.5)
-                                              : (isSelected ? Colors.white : AltheaColors.navy),
+                                              ? AltheaColors.textSecondary
+                                                    .withOpacity(0.5)
+                                              : (isSelected
+                                                    ? Colors.white
+                                                    : AltheaColors.navy),
                                         ),
                                       ),
                                     ),

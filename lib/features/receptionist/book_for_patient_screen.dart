@@ -147,14 +147,15 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
     if (_selectedDate != null && validDays.contains(_selectedDate!.weekday - 1)) {
       return _selectedDate!;
     }
-    DateTime current = DateTime.now();
+    final now = DateTime.now();
+    DateTime current = DateTime(now.year, now.month, now.day);
     for (int i = 0; i < 30; i++) {
       if (validDays.contains(current.weekday - 1)) {
         return current;
       }
       current = current.add(const Duration(days: 1));
     }
-    return DateTime.now();
+    return DateTime(now.year, now.month, now.day);
   }
 
   Future<void> _onDateSelected(DateTime date) async {
@@ -346,8 +347,8 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
                     )
                   : CalendarDatePicker(
                       initialDate: _getInitialDate(validDays),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                      firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+                      lastDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day).add(const Duration(days: 90)),
                       selectableDayPredicate: (DateTime val) {
                         return validDays.contains(val.weekday - 1);
                       },
