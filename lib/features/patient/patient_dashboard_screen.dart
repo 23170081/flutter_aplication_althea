@@ -31,7 +31,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       final user = supabase.auth.currentUser;
       if (user == null) throw Exception('No autenticado');
 
-      final data = await supabase.from('citas').select('''
+      final data = await supabase
+          .from('citas')
+          .select('''
         id,
         fecha,
         hora,
@@ -45,7 +47,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         sucursales (
           nombre
         )
-      ''').eq('usuario_id', user.id).eq('estado', 'programada');
+      ''')
+          .eq('usuario_id', user.id)
+          .eq('estado', 'programada');
 
       final now = DateTime.now();
       List<Map<String, dynamic>> upcoming = [];
@@ -53,22 +57,23 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       for (var row in data) {
         final dateStr = row['fecha'].toString();
         final timeStr = row['hora'].toString();
-        
+
         final dateTime = DateTime.parse('${dateStr}T$timeStr');
-        
+
         if (dateTime.isAfter(now)) {
           String doctorName = 'Doctor';
           String specialty = 'Especialidad';
           String branchName = 'Sucursal';
-          
+
           if (row['sucursales'] != null) {
             branchName = row['sucursales']['nombre'] ?? 'Sucursal';
           }
-          
+
           if (row['doctores'] != null) {
             specialty = row['doctores']['especialidad'] ?? 'Especialidad';
             if (row['doctores']['usuarios'] != null) {
-              doctorName = row['doctores']['usuarios']['nombre_completo'] ?? 'Doctor';
+              doctorName =
+                  row['doctores']['usuarios']['nombre_completo'] ?? 'Doctor';
             }
           }
 
@@ -85,7 +90,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         }
       }
 
-      upcoming.sort((a, b) => (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime));
+      upcoming.sort(
+        (a, b) =>
+            (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime),
+      );
 
       if (mounted) {
         setState(() {
@@ -96,54 +104,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
-    final dateTime = appointment['dateTime'] as DateTime;
-    final timeDiff = dateTime.difference(DateTime.now());
-    final isMoreThanOneDay = timeDiff.inHours > 24;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancelar Cita', style: TextStyle(color: AltheaColors.navy, fontWeight: FontWeight.bold)),
-        content: Text(
-          isMoreThanOneDay
-              ? '¿Estás seguro de cancelar esta cita? Al faltar más de un día, se te hará el reembolso del anticipo dado.'
-              : '¿Estás seguro de cancelar esta cita? Al faltar menos de un día, no habrá reembolso del anticipo.',
-          style: const TextStyle(color: AltheaColors.textSecondary),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Volver', style: TextStyle(color: AltheaColors.textSecondary, fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Sí, Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-      try {
-        final supabase = Supabase.instance.client;
-        await supabase.from('citas').update({'estado': 'cancelada'}).eq('id', appointment['id']);
-        _fetchUpcomingAppointments();
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
-        }
       }
     }
   }
@@ -218,14 +178,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (_isLoading)
-                    const Center(child: CircularProgressIndicator(color: AltheaColors.navy))
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: AltheaColors.navy,
+                      ),
+                    )
                   else if (_upcomingAppointments.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
                       child: Center(
                         child: Text(
                           'No tienes citas próximas',
-                          style: TextStyle(fontSize: 16, color: AltheaColors.textSecondary, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AltheaColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     )
@@ -233,10 +201,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ..._upcomingAppointments.map(
                       (a) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _AppointmentCard(
-                          appointment: a,
-                          onCancel: () => _cancelAppointment(a),
-                        ),
+                        child: _AppointmentCard(appointment: a),
                       ),
                     ),
                 ],
@@ -389,8 +354,7 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
 
 class _AppointmentCard extends StatelessWidget {
   final Map<String, dynamic> appointment;
-  final VoidCallback? onCancel;
-  const _AppointmentCard({required this.appointment, this.onCancel});
+  const _AppointmentCard({required this.appointment});
 
   @override
   Widget build(BuildContext context) {
@@ -410,23 +374,48 @@ class _AppointmentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  a['doctor']!, 
+                  a['doctor']!,
                   style: const TextStyle(
-                    fontSize: 17, 
-                    fontWeight: FontWeight.w800, 
-                    color: AltheaColors.navy, 
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AltheaColors.navy,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(a['specialty']!, style: const TextStyle(fontSize: 14, color: AltheaColors.textSecondary, fontWeight: FontWeight.w500)),
+                Text(
+                  a['specialty']!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AltheaColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(a['branch']!, style: const TextStyle(fontSize: 13, color: AltheaColors.navy, fontWeight: FontWeight.w600)),
+                Text(
+                  a['branch']!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AltheaColors.navy,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[400]),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: Colors.grey[400],
+                    ),
                     const SizedBox(width: 6),
-                    Text('${a['dateFormatted']} · ${a['timeFormatted']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AltheaColors.navy)),
+                    Text(
+                      '${a['dateFormatted']} · ${a['timeFormatted']}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AltheaColors.navy,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -436,32 +425,20 @@ class _AppointmentCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: AltheaColors.gold.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   'Próxima',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AltheaColors.gold),
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: onCancel,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Cancelar',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AltheaColors.gold,
                   ),
                 ),
               ),
