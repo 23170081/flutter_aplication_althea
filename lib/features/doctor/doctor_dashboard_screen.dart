@@ -131,10 +131,12 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
 
         if (isToday && (status == 'programada' || status == 'pendiente')) {
           todayAppointmentsList.add({
+            'id': c['id'],
             'patient': c['usuarios']?['nombre_completo'] ?? 'Paciente',
             'time': c['hora'],
             'type': c['sucursales']?['nombre'] ?? 'Consulta',
             'status': 'pending',
+            'isCompleted': false,
           });
         }
       }
@@ -162,6 +164,233 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         );
       }
     }
+  }
+
+  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Cancelar Cita',
+          style: TextStyle(
+            color: AltheaColors.navy,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          '¿Estás seguro de cancelar esta cita? Se le hará el reembolso completo del anticipo al paciente y se le notificará sobre cancelación.',
+          style: TextStyle(color: AltheaColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'No, Mantener',
+              style: TextStyle(
+                color: AltheaColors.navy,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Sí, Cancelar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase
+            .from('citas')
+            .update({'estado': 'cancelada'})
+            .eq('id', appointment['id']);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cita cancelada exitosamente.')),
+          );
+          _fetchStats();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
+        }
+      }
+    }
+  }
+
+  void _showAppointmentDetails(Map<String, dynamic> appointment) {
+    final isCompleted = appointment['isCompleted'] == true;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Detalles de la Cita',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AltheaColors.navy,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AltheaColors.lightBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _buildDetailRow(Icons.person_outline, 'Paciente', appointment['patient']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.medical_services_outlined, 'Tipo de Consulta', appointment['type']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.access_time_rounded, 'Hora', appointment['time']!),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/doctor/medical-record?patient=${Uri.encodeComponent(appointment['patient']!)}');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AltheaColors.navy,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Ver Expediente Médico',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              
+              if (!isCompleted) ...[
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _cancelAppointment(appointment);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade50,
+                    foregroundColor: Colors.red,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancelar Cita',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  'Cerrar',
+                  style: TextStyle(
+                    color: AltheaColors.textSecondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: AltheaColors.gold, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AltheaColors.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AltheaColors.navy,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -289,9 +518,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _AppointmentItem(
                           appointment: a,
-                          onViewRecord: () => context.go(
-                            '/doctor/medical-record?patient=${Uri.encodeComponent(a['patient']!)}',
-                          ),
+                          onTap: () => _showAppointmentDetails(a),
                         ),
                       ),
                     ),
@@ -392,7 +619,7 @@ class _StatItem extends StatelessWidget {
 
 class _AppointmentItem extends StatelessWidget {
   final Map<String, dynamic> appointment;
-  final VoidCallback onViewRecord;
+  final VoidCallback onTap;
 
   String _formatTimeStr(String time) {
     final parts = time.split(':');
@@ -404,87 +631,78 @@ class _AppointmentItem extends StatelessWidget {
 
   const _AppointmentItem({
     required this.appointment,
-    required this.onViewRecord,
+    required this.onTap,
   });
+
   @override
   Widget build(BuildContext context) {
     final isCompleted = appointment['status'] == 'completed';
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AltheaColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  appointment['patient']!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isCompleted
-                        ? AltheaColors.textSecondary
-                        : AltheaColors.navy,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                Text(
-                  appointment['type']!,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AltheaColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AltheaColors.borderLight),
           ),
-          Row(
+          child: Row(
             children: [
-              Icon(
-                Icons.access_time_rounded,
-                size: 14,
-                color: AltheaColors.gold,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _formatTimeStr(appointment['time'] as String),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AltheaColors.navy,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      appointment['patient']!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isCompleted
+                            ? AltheaColors.textSecondary
+                            : AltheaColors.navy,
+                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    Text(
+                      appointment['type']!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AltheaColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onViewRecord,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: AltheaColors.gold,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AltheaColors.borderLight),
-                  ),
-                  child: const Text(
-                    'Expediente',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatTimeStr(appointment['time'] as String),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       color: AltheaColors.navy,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey.shade400,
+                    size: 20,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

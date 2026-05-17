@@ -205,6 +205,162 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     }
   }
 
+  void _showAppointmentDetails(Map<String, dynamic> appointment, bool isUpcoming, bool isCancelled) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Detalles de la Cita',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AltheaColors.navy,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Detalles
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AltheaColors.lightBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _buildDetailRow(Icons.person_outline, 'Doctor', appointment['doctor']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.medical_services_outlined, 'Especialidad', appointment['specialty']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.business_outlined, 'Sucursal', appointment['branch']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.calendar_today_outlined, 'Fecha', appointment['dateFormatted']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.access_time_rounded, 'Hora', appointment['timeFormatted']!),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Botones de acción
+              if (isUpcoming && !isCancelled)
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Cerrar bottom sheet
+                    _cancelAppointment(appointment);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade50,
+                    foregroundColor: Colors.red,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancelar Cita',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+              else if (isCancelled)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Cita Cancelada',
+                    style: TextStyle(
+                      color: AltheaColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  'Cerrar',
+                  style: TextStyle(
+                    color: AltheaColors.navy,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: AltheaColors.gold, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AltheaColors.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AltheaColors.navy,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allAppointments = [..._upcomingAppointments, ..._pastAppointments];
@@ -274,120 +430,109 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _showAppointmentDetails(a, isUpcoming, isCancelled),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AltheaColors.borderLight),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                a['doctor']!,
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  color: isCancelled
-                                      ? AltheaColors.textSecondary
-                                      : AltheaColors.navy,
-                                  decoration: isCancelled
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                a['specialty']!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AltheaColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                a['branch']!,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AltheaColors.navy,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AltheaColors.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 14,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(width: 6),
                                   Text(
-                                    '${a['dateFormatted']} · ${a['timeFormatted']}',
+                                    a['doctor']!,
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      color: isCancelled
+                                          ? AltheaColors.textSecondary
+                                          : AltheaColors.navy,
+                                      decoration: isCancelled
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    a['specialty']!,
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AltheaColors.navy,
+                                      color: AltheaColors.textSecondary,
+                                      fontWeight: FontWeight.w500,
                                     ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    a['branch']!,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AltheaColors.navy,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 14,
+                                        color: Colors.grey[400],
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${a['dateFormatted']} · ${a['timeFormatted']}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AltheaColors.navy,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: badgeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                badgeText,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: badgeColor,
-                                ),
-                              ),
                             ),
-                            if (isUpcoming && !isCancelled) ...[
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () => _cancelAppointment(a),
-                                child: Container(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
+                                    color: badgeColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Text(
-                                    'Cancelar',
+                                  child: Text(
+                                    badgeText,
                                     style: TextStyle(
-                                      color: Colors.red,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
+                                      color: badgeColor,
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.grey.shade400,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 );
