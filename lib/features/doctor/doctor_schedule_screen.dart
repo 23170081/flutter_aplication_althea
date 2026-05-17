@@ -140,7 +140,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error al cargar citas: $e')));
-      }
+      } //Ejemplo commit
     }
   }
 
