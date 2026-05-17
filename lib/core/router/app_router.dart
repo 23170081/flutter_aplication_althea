@@ -88,7 +88,9 @@ GoRouter createRouter(BuildContext context) {
       ),
       GoRoute(
         path: '/receptionist/book-patient',
-        builder: (_, _) => const BookForPatientScreen(),
+        builder: (_, state) => BookForPatientScreen(
+          patientId: state.uri.queryParameters['patientId'],
+        ),
       ),
 
       // Admin
