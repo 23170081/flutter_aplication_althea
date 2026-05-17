@@ -157,7 +157,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
           ),
         ),
         content: const Text(
-          '¿Estás seguro de cancelar esta cita? Se le hará el reembolso completo del anticipo al paciente y se le notificará de la cancelación.',
+          '¿Estás seguro de cancelar esta cita? Se le hará el reembolso completo del anticipo al paciente y se le notificará sobre cancelación.',
           style: TextStyle(color: AltheaColors.textSecondary),
         ),
         actions: [
