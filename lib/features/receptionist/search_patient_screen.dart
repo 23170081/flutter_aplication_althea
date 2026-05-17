@@ -187,7 +187,7 @@ class _SearchPatientScreenState extends State<SearchPatientScreen> {
                               ),
                               GestureDetector(
                                 onTap: () =>
-                                    context.go('/receptionist/book-patient'),
+                                    context.go('/receptionist/book-patient?patientId=${p['id']}'),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,

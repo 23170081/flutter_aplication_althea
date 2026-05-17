@@ -109,11 +109,7 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                           dark: true,
                           onTap: () {},
                         ),
-                        _ReceptionBtn(
-                          icon: Icons.calendar_today_rounded,
-                          label: 'Agendar Cita',
-                          onTap: () => context.go('/receptionist/book-patient'),
-                        ),
+
                         _ReceptionBtn(
                           icon: Icons.receipt_long_rounded,
                           label: 'Cobros y Facturas',

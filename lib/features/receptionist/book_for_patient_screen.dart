@@ -286,14 +286,28 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle('Seleccionar Paciente'),
-            _CustomDropdown(
-              hint: 'Seleccionar paciente',
-              items: _patients.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text('${p['name']} (${p['phone']})', style: const TextStyle(fontSize: 14, color: AltheaColors.navy)))).toList(),
-              value: _selectedPatientId,
-              onChanged: (v) => setState(() => _selectedPatientId = v),
-            ),
-            const SizedBox(height: 20),
+            if (widget.patientId != null) ...[
+              _SectionTitle('Paciente Seleccionado'),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AltheaColors.borderLight)),
+                child: Text(
+                  _patients.firstWhere((p) => p['id'].toString() == _selectedPatientId, orElse: () => {'name': 'Cargando...'})['name'] ?? 'Cargando...',
+                  style: const TextStyle(fontSize: 14, color: AltheaColors.navy, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ] else ...[
+              _SectionTitle('Seleccionar Paciente'),
+              _CustomDropdown(
+                hint: 'Seleccionar paciente',
+                items: _patients.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text('${p['name']} (${p['phone']})', style: const TextStyle(fontSize: 14, color: AltheaColors.navy)))).toList(),
+                value: _selectedPatientId,
+                onChanged: (v) => setState(() => _selectedPatientId = v),
+              ),
+              const SizedBox(height: 20),
+            ],
             
             _SectionTitle('Seleccionar Doctor'),
             _CustomDropdown(
