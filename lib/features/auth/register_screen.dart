@@ -309,39 +309,65 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         Icons.cake_outlined,
                                         keyboard: TextInputType.datetime,
                                         validator: (v) {
-                                          if (v == null || v.isEmpty) return 'Campo requerido';
-                                          final regex = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+                                          if (v == null || v.isEmpty)
+                                            return 'Campo requerido';
+                                          final regex = RegExp(
+                                            r'^(\d{2})/(\d{2})/(\d{4})$',
+                                          );
                                           final match = regex.firstMatch(v);
                                           if (match == null) {
                                             return 'Usa el formato DD/MM/AAAA';
                                           }
-                                          final day = int.tryParse(match.group(1)!);
-                                          final month = int.tryParse(match.group(2)!);
-                                          final year = int.tryParse(match.group(3)!);
-                                          
-                                          if (month == null || month < 1 || month > 12) {
+                                          final day = int.tryParse(
+                                            match.group(1)!,
+                                          );
+                                          final month = int.tryParse(
+                                            match.group(2)!,
+                                          );
+                                          final year = int.tryParse(
+                                            match.group(3)!,
+                                          );
+
+                                          if (month == null ||
+                                              month < 1 ||
+                                              month > 12) {
                                             return 'Mes inválido';
                                           }
-                                          
+
                                           int maxDays = 31;
                                           if ([4, 6, 9, 11].contains(month)) {
                                             maxDays = 30;
                                           } else if (month == 2) {
-                                            final isLeapYear = (year! % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+                                            final isLeapYear =
+                                                (year! % 4 == 0 &&
+                                                    year % 100 != 0) ||
+                                                (year % 400 == 0);
                                             maxDays = isLeapYear ? 29 : 28;
                                           }
-                                          
-                                          if (day == null || day < 1 || day > maxDays) {
+
+                                          if (day == null ||
+                                              day < 1 ||
+                                              day > maxDays) {
                                             return 'Día inválido';
                                           }
-                                          
-                                          final inputDate = DateTime(year!, month, day);
+
+                                          final inputDate = DateTime(
+                                            year!,
+                                            month,
+                                            day,
+                                          );
                                           final today = DateTime.now();
-                                          final todayDateOnly = DateTime(today.year, today.month, today.day);
-                                          if (inputDate.isAfter(todayDateOnly)) {
+                                          final todayDateOnly = DateTime(
+                                            today.year,
+                                            today.month,
+                                            today.day,
+                                          );
+                                          if (inputDate.isAfter(
+                                            todayDateOnly,
+                                          )) {
                                             return 'La fecha no puede ser en el futuro';
                                           }
-                                          
+
                                           return null;
                                         },
                                       ),
