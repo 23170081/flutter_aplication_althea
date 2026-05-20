@@ -45,7 +45,11 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se encontró el perfil de doctor asociado a este usuario.')),
+            const SnackBar(
+              content: Text(
+                'No se encontró el perfil de doctor asociado a este usuario.',
+              ),
+            ),
           );
         }
         return;
@@ -119,7 +123,8 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
 
         if (status != 'terminada' && status != 'cancelada') {
           if (isToday) todayCount++;
-          if (isThisWeek && !aptDateAtMidnight.isBefore(todayAtMidnight)) weekCount++;
+          if (isThisWeek && !aptDateAtMidnight.isBefore(todayAtMidnight))
+            weekCount++;
         }
 
         if (c['usuarios'] != null && c['usuarios']['id'] != null) {
@@ -159,9 +164,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar datos: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar datos: $e')));
       }
     }
   }
@@ -274,7 +279,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -283,11 +288,23 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildDetailRow(Icons.person_outline, 'Paciente', appointment['patient']!),
+                    _buildDetailRow(
+                      Icons.person_outline,
+                      'Paciente',
+                      appointment['patient']!,
+                    ),
                     const Divider(height: 24),
-                    _buildDetailRow(Icons.medical_services_outlined, 'Tipo de Consulta', appointment['type']!),
+                    _buildDetailRow(
+                      Icons.medical_services_outlined,
+                      'Tipo de Consulta',
+                      appointment['type']!,
+                    ),
                     const Divider(height: 24),
-                    _buildDetailRow(Icons.access_time_rounded, 'Hora', appointment['time']!),
+                    _buildDetailRow(
+                      Icons.access_time_rounded,
+                      'Hora',
+                      appointment['time']!,
+                    ),
                   ],
                 ),
               ),
@@ -296,7 +313,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  context.go('/doctor/medical-record?patient=${Uri.encodeComponent(appointment['patient']!)}');
+                  context.go(
+                    '/doctor/medical-record?patient=${Uri.encodeComponent(appointment['patient']!)}',
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AltheaColors.navy,
@@ -308,13 +327,10 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                 ),
                 child: const Text(
                   'Ver Expediente Médico',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
-              
+
               if (!isCompleted) ...[
                 const SizedBox(height: 12),
                 ElevatedButton(
@@ -333,10 +349,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   ),
                   child: const Text(
                     'Cancelar Cita',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -629,10 +642,7 @@ class _AppointmentItem extends StatelessWidget {
     return time;
   }
 
-  const _AppointmentItem({
-    required this.appointment,
-    required this.onTap,
-  });
+  const _AppointmentItem({required this.appointment, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -663,7 +673,9 @@ class _AppointmentItem extends StatelessWidget {
                         color: isCompleted
                             ? AltheaColors.textSecondary
                             : AltheaColors.navy,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
                     Text(

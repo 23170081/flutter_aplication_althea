@@ -63,8 +63,8 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
       final todayAtMidnight = DateTime(now.year, now.month, now.day);
 
       for (var c in citas) {
-        final status = c['estado'] as String;
-        if (status == 'cancelada') continue;
+        // final status = c['estado'] as String;
+        // if (status == 'cancelada') continue;
 
         final u = c['usuarios'];
         if (u == null || u['id'] == null) continue;
