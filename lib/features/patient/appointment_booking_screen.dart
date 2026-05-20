@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
@@ -40,6 +41,38 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   bool _isLoadingData = true;
   List<String> _bookedTimes = [];
   bool _isLoadingTimes = false;
+
+  bool get _isCardNameValid => _cardName.trim().length >= 3;
+
+  bool get _isCardNumberValid {
+    final clean = _cardNumber.replaceAll(RegExp(r'\D'), '');
+    return clean.length == 16;
+  }
+
+  bool get _isExpiryValid {
+    if (_expiry.length != 5) return false;
+    final regExp = RegExp(r'^(0[1-9]|1[0-2])\/[0-9]{2}$');
+    if (!regExp.hasMatch(_expiry)) return false;
+    try {
+      final parts = _expiry.split('/');
+      final month = int.parse(parts[0]);
+      final year = int.parse('20${parts[1]}');
+      final now = DateTime.now();
+      final expiryDate = DateTime(year, month + 1).subtract(const Duration(days: 1));
+      return expiryDate.isAfter(now) || (expiryDate.year == now.year && expiryDate.month == now.month);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _isCvvValid {
+    final clean = _cvv.replaceAll(RegExp(r'\D'), '');
+    return clean.length == 3 || clean.length == 4;
+  }
+
+  bool get _isCardValid =>
+      _paymentMethod != 'card' ||
+      (_isCardNameValid && _isCardNumberValid && _isExpiryValid && _isCvvValid);
 
   @override
   void initState() {
@@ -286,9 +319,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         };
 
     final isButtonEnabled =
-        _selectedDate != null && _selectedTime != null && !_isProcessing;
-    // Se ha deshabilitado temporalmente la validación estricta de la tarjeta para facilitar pruebas
-    // (_paymentMethod != 'card' || (_cardNumber.isNotEmpty && _expiry.isNotEmpty && _cvv.isNotEmpty));
+        _selectedDate != null && _selectedTime != null && !_isProcessing && _isCardValid;
 
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
@@ -1006,6 +1037,10 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                             'Nombre en la tarjeta',
                             'Como aparece en el plástico',
                             (val) => setState(() => _cardName = val),
+                            maxLength: 50,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
@@ -1013,6 +1048,10 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                             '0000 0000 0000 0000',
                             (val) => setState(() => _cardNumber = val),
                             isNumber: true,
+                            maxLength: 19,
+                            inputFormatters: [
+                              CardNumberInputFormatter(),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -1022,6 +1061,10 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                   'Vencimiento',
                                   'MM/YY',
                                   (val) => setState(() => _expiry = val),
+                                  maxLength: 5,
+                                  inputFormatters: [
+                                    CardExpiryInputFormatter(),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -1031,6 +1074,11 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                   '***',
                                   (val) => setState(() => _cvv = val),
                                   isPassword: true,
+                                  isNumber: true,
+                                  maxLength: 4,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                 ),
                               ),
                             ],
@@ -1267,6 +1315,8 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
     Function(String) onChanged, {
     bool isNumber = false,
     bool isPassword = false,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1284,11 +1334,14 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
           onChanged: onChanged,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           obscureText: isPassword,
+          maxLength: maxLength,
+          inputFormatters: inputFormatters,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: AltheaColors.navy,
           ),
           decoration: InputDecoration(
+            counterText: "",
             hintText: hint,
             hintStyle: TextStyle(
               color: AltheaColors.textSecondary.withOpacity(0.5),
@@ -1424,6 +1477,58 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class CardNumberInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (text.length > 16) {
+      text = text.substring(0, 16);
+    }
+
+    var buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      var nonZeroIndex = i + 1;
+      if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) {
+        buffer.write(' ');
+      }
+    }
+
+    var string = buffer.toString();
+    return newValue.copyWith(
+      text: string,
+      selection: TextSelection.collapsed(offset: string.length),
+    );
+  }
+}
+
+class CardExpiryInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (text.length > 4) {
+      text = text.substring(0, 4);
+    }
+
+    var buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      var nonZeroIndex = i + 1;
+      if (nonZeroIndex == 2 && nonZeroIndex != text.length) {
+        buffer.write('/');
+      }
+    }
+
+    var string = buffer.toString();
+    return newValue.copyWith(
+      text: string,
+      selection: TextSelection.collapsed(offset: string.length),
     );
   }
 }
