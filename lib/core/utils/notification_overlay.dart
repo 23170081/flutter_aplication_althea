@@ -51,8 +51,8 @@ class _NotificationToastState extends State<_NotificationToast> with SingleTicke
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _offsetAnimation = Tween<Offset>(begin: const Offset(0.0, -1.0), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    _offsetAnimation = Tween<Offset>(begin: const Offset(0.0, -0.3), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _controller.forward();
   }
@@ -70,70 +70,72 @@ class _NotificationToastState extends State<_NotificationToast> with SingleTicke
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 10,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: SlideTransition(
-          position: _offsetAnimation,
-          child: GestureDetector(
-            onVerticalDragEnd: (details) {
-              if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
-                _dismiss();
-              }
-            },
-            onTap: _dismiss,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+    return SafeArea(
+      child: Positioned(
+          top: MediaQuery.of(context).padding.top + 20,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: SlideTransition(
+              position: _offsetAnimation,
+              child: GestureDetector(
+                onVerticalDragEnd: (details) {
+                  if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
+                    _dismiss();
+                  }
+                },
+                onTap: _dismiss,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                    border: Border.all(color: AltheaColors.borderLight),
                   ),
-                ],
-                border: Border.all(color: AltheaColors.borderLight),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AltheaColors.gold.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.notifications_active_rounded, color: AltheaColors.gold, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.title,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AltheaColors.navy),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AltheaColors.gold.withOpacity(0.15),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.message,
-                          style: const TextStyle(color: AltheaColors.textSecondary, fontSize: 14),
+                        child: const Icon(Icons.notifications_active_rounded, color: AltheaColors.gold, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.title,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AltheaColors.navy),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.message,
+                              style: const TextStyle(color: AltheaColors.textSecondary, fontSize: 14),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
     );
   }
 }

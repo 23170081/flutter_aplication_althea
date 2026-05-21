@@ -864,74 +864,94 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AltheaColors.navy),
             )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Vista Semanal',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AltheaColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildHorizontalCalendar(),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Mapa de Calor Mensual',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AltheaColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildGridCalendar(),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Horario del Día',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AltheaColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Vista Semanal',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AltheaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildHorizontalCalendar(),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Mapa de Calor Mensual',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AltheaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildGridCalendar(),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Horario del Día',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AltheaColors.navy,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                  if (_isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(
-                          color: AltheaColors.navy,
-                        ),
-                      ),
-                    )
-                  else if (_appointments.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text(
-                          'No hay citas programadas para este día.',
-                          style: TextStyle(color: AltheaColors.textSecondary),
-                        ),
-                      ),
-                    )
-                  else
-                    ..._appointments.map(
-                      (a) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _AppointmentItem(
-                          appointment: a,
-                          onTap: () => _showAppointmentDetails(a),
-                        ),
-                      ),
+                        if (_isLoading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(
+                                color: AltheaColors.navy,
+                              ),
+                            ),
+                          )
+                        else if (_appointments.isEmpty)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Text(
+                                'No hay citas programadas para este día.',
+                                style: TextStyle(
+                                  color: AltheaColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            height: 300,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(8),
+                              itemCount: _appointments.length,
+                              itemBuilder: (context, index) {
+                                final a = _appointments[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _AppointmentItem(
+                                    appointment: a,
+                                    onTap: () => _showAppointmentDetails(a),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
     );
   }

@@ -92,10 +92,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _handleLogin() async {
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-
-    if (!mounted) return;
     final provider = context.read<UserProvider>();
 
     try {
@@ -107,19 +107,50 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       context.go(provider.user!.initialRoute);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e
-                .toString()
-                .replaceAll('Exception: ', '')
-                .replaceAll('AuthException(message: ', '')
-                .replaceAll(')', ''),
+      String errorMessage = 'Error al iniciar sesión';
+      if (e.toString().contains('No se encontró')) {
+        errorMessage = 'No se encontró ninguna cuenta con este teléfono.';
+      } else if (e.toString().contains('Contraseña incorrecta')) {
+        errorMessage = 'Contraseña incorrecta.';
+      } else if (e.toString().contains('Usuario sin contraseña')) {
+        errorMessage = 'Error en la cuenta de usuario.';
+      } else {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
+      
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    errorMessage,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            duration: const Duration(seconds: 4),
           ),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

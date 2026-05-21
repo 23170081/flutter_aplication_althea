@@ -18,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _curpCtrl = TextEditingController();
   final _birthDateCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   String? _selectedBloodType;
@@ -53,6 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
+    _curpCtrl.dispose();
     _birthDateCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -73,6 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         password: _passwordCtrl.text,
         birthDate: _birthDateCtrl.text.trim().split('/').reversed.join('-'),
         bloodType: _selectedBloodType!,
+        curp: _curpCtrl.text.trim(),
       );
 
       if (!mounted) return;
@@ -303,6 +306,23 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       ),
                                       const SizedBox(height: 14),
                                       _buildField(
+                                        _curpCtrl,
+                                        'CURP',
+                                        'LOCM880412MSLPRS01',
+                                        Icons.badge_outlined,
+                                        textCapitalization: TextCapitalization.characters,
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty) {
+                                            return 'Campo requerido';
+                                          }
+                                          if (v.length != 18) {
+                                            return 'Debe tener exactamente 18 caracteres';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _buildField(
                                         _birthDateCtrl,
                                         'Fecha de nacimiento',
                                         'DD/MM/AAAA',
@@ -469,6 +489,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     IconData icon, {
     TextInputType keyboard = TextInputType.text,
     String? Function(String?)? validator,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,6 +506,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         TextFormField(
           controller: ctrl,
           keyboardType: keyboard,
+          textCapitalization: textCapitalization,
           validator:
               validator ??
               (v) => v == null || v.isEmpty ? 'Campo requerido' : null,

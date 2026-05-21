@@ -25,7 +25,10 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProxyProvider<UserProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(UserProvider()),
+          update: (_, userProvider, __) => NotificationProvider(userProvider),
+        ),
       ],
       child: const AltheaApp(),
     ),

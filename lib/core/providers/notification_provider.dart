@@ -4,39 +4,52 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
 import '../utils/notification_overlay.dart';
 import '../router/app_router.dart';
+import 'user_provider.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final _supabase = Supabase.instance.client;
+  final UserProvider _userProvider;
   
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   RealtimeChannel? _channel;
+  StreamSubscription? _userSubscription;
 
   List<NotificationModel> get notifications => _notifications;
   bool get isLoading => _isLoading;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
-  NotificationProvider() {
+  NotificationProvider(this._userProvider) {
     _init();
   }
 
   void _init() {
-    _supabase.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-      if (session != null) {
-        _loadNotifications();
-        _subscribeToNotifications();
-      } else {
-        _clearData();
-      }
-    });
+    // Check initial state
+    if (_userProvider.isLoggedIn) {
+      _loadNotifications();
+      _subscribeToNotifications();
+    }
+
+    // Listen to UserProvider changes
+    _userProvider.addListener(_onUserChanged);
+  }
+
+  void _onUserChanged() {
+    if (_userProvider.isLoggedIn) {
+      _loadNotifications();
+      _subscribeToNotifications();
+    } else {
+      _clearData();
+    }
   }
 
   Future<void> _loadNotifications() async {
+    if (_userProvider.user == null) return;
+    
     _isLoading = true;
     notifyListeners();
     try {
-      final userId = _supabase.auth.currentUser!.id;
+      final userId = _userProvider.user!.id;
       final data = await _supabase
           .from('notifications')
           .select()
@@ -53,8 +66,10 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _subscribeToNotifications() {
+    if (_userProvider.user == null) return;
+    
     _channel?.unsubscribe();
-    final userId = _supabase.auth.currentUser!.id;
+    final userId = _userProvider.user!.id;
 
     _channel = _supabase.channel('public:notifications:user_$userId');
     _channel!.onPostgresChanges(
@@ -141,7 +156,8 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final userId = _supabase.auth.currentUser!.id;
+      if (_userProvider.user == null) return;
+      final userId = _userProvider.user!.id;
       await _supabase
           .from('notifications')
           .update({'is_read': true})
@@ -163,6 +179,7 @@ class NotificationProvider extends ChangeNotifier {
   @override
   void dispose() {
     _channel?.unsubscribe();
+    _userSubscription?.cancel();
     super.dispose();
   }
 }
