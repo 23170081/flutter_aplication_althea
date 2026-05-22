@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -346,10 +347,23 @@ class _LoginScreenState extends State<LoginScreen>
                                         label: 'Telefono',
                                         hint: '555 123 4567',
                                         icon: Icons.phone_outlined,
-                                        keyboardType: TextInputType.phone,
-                                        validator: (v) => v == null || v.isEmpty
-                                            ? 'Ingresa tu telefono'
-                                            : null,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                        ],
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty) {
+                                            return 'Ingresa tu teléfono';
+                                          }
+                                          final digitsOnly = v.replaceAll(
+                                            RegExp(r'\D'),
+                                            '',
+                                          );
+                                          if (digitsOnly.length != 10) {
+                                            return 'Debe tener exactamente 10 dígitos';
+                                          }
+                                          return null;
+                                        },
                                       ),
                                       const SizedBox(height: 16),
 
@@ -548,6 +562,7 @@ class _GlassInput extends StatelessWidget {
   final bool showPassword;
   final VoidCallback? onTogglePassword;
   final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
 
   const _GlassInput({
@@ -559,6 +574,7 @@ class _GlassInput extends StatelessWidget {
     this.showPassword = false,
     this.onTogglePassword,
     this.keyboardType = TextInputType.text,
+    this.inputFormatters,
     this.validator,
   });
 
@@ -579,6 +595,7 @@ class _GlassInput extends StatelessWidget {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           obscureText: isPassword && !showPassword,
           validator: validator,
           style: const TextStyle(color: Colors.white),
