@@ -684,33 +684,68 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   String _buildCurpNamePart(String fullName) {
-    final normalized = _normalizeName(fullName);
-    if (normalized.isEmpty) return '';
-    final parts = normalized.split(' ');
-    if (parts.length < 2) return '';
+  final normalized = _normalizeName(fullName);
 
-    final firstName = parts.first;
-    final maternalSurname = parts.length > 1 ? parts.last : '';
-    final paternalSurname = parts.length > 2 ? parts[parts.length - 2] : parts.last;
+  if (normalized.isEmpty) return '';
 
-    final givenName = (firstName == 'JOSE' || firstName == 'MARIA') && parts.length > 2
-        ? parts[1]
-        : firstName;
+  final parts = normalized.split(' ');
 
-    String firstVowel(String s) {
-      for (var i = 1; i < s.length; i++) {
-        if ('AEIOU'.contains(s[i])) return s[i];
-      }
-      return 'X';
-    }
+  // Debe existir al menos nombre + apellido
+  if (parts.length < 2) return '';
 
-    final p1 = paternalSurname.isNotEmpty ? paternalSurname[0] : 'X';
-    final p2 = paternalSurname.length > 1 ? firstVowel(paternalSurname) : 'X';
-    final p3 = maternalSurname.isNotEmpty ? maternalSurname[0] : 'X';
-    final p4 = givenName.isNotEmpty ? givenName[0] : 'X';
+  String paternalSurname = '';
+  String maternalSurname = '';
+  List<String> givenNames = [];
 
-    return '$p1$p2$p3$p4';
+  // Caso: solo nombre y un apellido
+  if (parts.length == 2) {
+    givenNames = [parts[0]];
+    paternalSurname = parts[1];
+    maternalSurname = 'X';
+  } else {
+    // Últimos dos = apellidos
+    paternalSurname = parts[parts.length - 2];
+    maternalSurname = parts[parts.length - 1];
+
+    // Todo lo anterior = nombres
+    givenNames = parts.sublist(0, parts.length - 2);
   }
+
+  String givenName = givenNames.first;
+
+  // Regla oficial CURP
+  if ((givenName == 'JOSE' || givenName == 'MARIA') &&
+      givenNames.length > 1) {
+    givenName = givenNames[1];
+  }
+
+  String firstVowel(String s) {
+    for (var i = 1; i < s.length; i++) {
+      if ('AEIOU'.contains(s[i])) {
+        return s[i];
+      }
+    }
+    return 'X';
+  }
+
+  final p1 = paternalSurname.isNotEmpty
+      ? paternalSurname[0]
+      : 'X';
+
+  final p2 = paternalSurname.length > 1
+      ? firstVowel(paternalSurname)
+      : 'X';
+
+  final p3 = maternalSurname.isNotEmpty
+      ? maternalSurname[0]
+      : 'X';
+
+  final p4 = givenName.isNotEmpty
+      ? givenName[0]
+      : 'X';
+
+  return '$p1$p2$p3$p4';
+}
 
   String _buildCurpDatePart(String birthDate) {
     final regex = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
