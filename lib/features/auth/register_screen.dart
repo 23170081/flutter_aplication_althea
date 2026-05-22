@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -286,7 +287,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                               'Teléfono',
                                               '555 123 4567',
                                               Icons.phone_outlined,
-                                              keyboard: TextInputType.phone,
+                                              keyboard: TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                              ],
                                               validator: (v) {
                                                 if (v == null || v.isEmpty) {
                                                   return 'Campo requerido';
@@ -310,13 +314,43 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         'CURP',
                                         'LOCM880412MSLPRS01',
                                         Icons.badge_outlined,
+                                        keyboard: TextInputType.visiblePassword,
                                         textCapitalization: TextCapitalization.characters,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[A-Za-z0-9]'),
+                                          ),
+                                          UpperCaseTextFormatter(),
+                                        ],
                                         validator: (v) {
                                           if (v == null || v.isEmpty) {
                                             return 'Campo requerido';
                                           }
-                                          if (v.length != 18) {
+                                          final value = v.trim().toUpperCase();
+                                          if (value.length != 18) {
                                             return 'Debe tener exactamente 18 caracteres';
+                                          }
+                                          final curpRegex = RegExp(
+                                            r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}$',
+                                          );
+                                          if (!curpRegex.hasMatch(value)) {
+                                            return 'CURP inválida';
+                                          }
+                                          final expectedNamePart =
+                                              _buildCurpNamePart(
+                                            _nameCtrl.text.trim(),
+                                          );
+                                          if (expectedNamePart.isNotEmpty &&
+                                              value.substring(0, 4) !=
+                                                  expectedNamePart) {
+                                            return 'Los primeros 4 caracteres de la CURP no coinciden con el nombre';
+                                          }
+                                          final birthDate = _birthDateCtrl.text.trim();
+                                          final birthPart =
+                                              _buildCurpDatePart(birthDate);
+                                          if (birthPart.isNotEmpty &&
+                                              value.substring(4, 10) != birthPart) {
+                                            return 'La fecha en la CURP no coincide con la fecha de nacimiento';
                                           }
                                           return null;
                                         },
@@ -327,10 +361,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         'Fecha de nacimiento',
                                         'DD/MM/AAAA',
                                         Icons.cake_outlined,
-                                        keyboard: TextInputType.datetime,
+                                        keyboard: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                          _BirthDateTextInputFormatter(),
+                                        ],
                                         validator: (v) {
-                                          if (v == null || v.isEmpty)
+                                          if (v == null || v.isEmpty) {
                                             return 'Campo requerido';
+                                          }
                                           final regex = RegExp(
                                             r'^(\d{2})/(\d{2})/(\d{4})$',
                                           );
@@ -488,6 +527,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     String hint,
     IconData icon, {
     TextInputType keyboard = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
@@ -506,6 +546,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         TextFormField(
           controller: ctrl,
           keyboardType: keyboard,
+          inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
           validator:
               validator ??
@@ -628,6 +669,59 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  String _normalizeName(String name) {
+    return name
+        .toUpperCase()
+        .replaceAll(RegExp(r'[ÁÀÂÄ]'), 'A')
+        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+        .replaceAll(RegExp(r'[ÓÒÔÖ]'), 'O')
+        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+        .replaceAll(RegExp(r'Ñ'), 'N')
+        .replaceAll(RegExp(r'[^A-Z ]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _buildCurpNamePart(String fullName) {
+    final normalized = _normalizeName(fullName);
+    if (normalized.isEmpty) return '';
+    final parts = normalized.split(' ');
+    if (parts.length < 2) return '';
+
+    final firstName = parts.first;
+    final maternalSurname = parts.length > 1 ? parts.last : '';
+    final paternalSurname = parts.length > 2 ? parts[parts.length - 2] : parts.last;
+
+    final givenName = (firstName == 'JOSE' || firstName == 'MARIA') && parts.length > 2
+        ? parts[1]
+        : firstName;
+
+    String firstVowel(String s) {
+      for (var i = 1; i < s.length; i++) {
+        if ('AEIOU'.contains(s[i])) return s[i];
+      }
+      return 'X';
+    }
+
+    final p1 = paternalSurname.isNotEmpty ? paternalSurname[0] : 'X';
+    final p2 = paternalSurname.length > 1 ? firstVowel(paternalSurname) : 'X';
+    final p3 = maternalSurname.isNotEmpty ? maternalSurname[0] : 'X';
+    final p4 = givenName.isNotEmpty ? givenName[0] : 'X';
+
+    return '$p1$p2$p3$p4';
+  }
+
+  String _buildCurpDatePart(String birthDate) {
+    final regex = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+    final match = regex.firstMatch(birthDate);
+    if (match == null) return '';
+    final year = match.group(3)!;
+    final month = match.group(2)!;
+    final day = match.group(1)!;
+    return '${year.substring(2)}$month$day';
+  }
+
   Widget _buildPasswordField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,6 +791,48 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BirthDateTextInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 8) {
+      digits = digits.substring(0, 8);
+    }
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      buffer.write(digits[i]);
+      if ((i == 1 || i == 3) && i != digits.length - 1) {
+        buffer.write('/');
+      }
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final upperText = newValue.text.toUpperCase();
+    return TextEditingValue(
+      text: upperText,
+      selection: newValue.selection,
+      composing: newValue.composing,
     );
   }
 }
