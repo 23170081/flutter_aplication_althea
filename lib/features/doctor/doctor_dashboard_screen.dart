@@ -429,6 +429,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                         context.read<UserProvider>().logout();
                         context.go('/');
                       },
+                      onSettings: () => context.go('/doctor/schedule-config'),
                     ),
                     const SizedBox(height: 150),
                   ],
@@ -563,6 +564,15 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     gradient: const [AltheaColors.gold, AltheaColors.goldLight],
                     textColor: AltheaColors.navy,
                     onTap: () => context.go('/doctor/schedule'),
+                  ),
+                  const SizedBox(height: 12),
+                  _QuickActionCard(
+                    icon: Icons.event_busy_rounded,
+                    title: 'Bloqueos de Día',
+                    subtitle: 'Gestionar días bloqueados',
+                    gradient: const [AltheaColors.navy, AltheaColors.navyMid],
+                    textColor: Colors.white,
+                    onTap: () => context.go('/doctor/day-blocks'),
                   ),
                   const SizedBox(height: 12),
                   _QuickActionCard(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:ui';
@@ -83,33 +85,52 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   Future<void> _fetchDoctorSchedules() async {
     try {
       final supabase = Supabase.instance.client;
-      final data = await supabase
+      print('Buscando horarios para doctor_id: ${widget.doctorId}');
+      
+      // Cargar horarios sin relación
+      final horariosData = await supabase
           .from('horarios_doctor')
-          .select('''
-            id,
-            dia_semana,
-            hora_inicio,
-            hora_fin,
-            sucursales (
-              id,
-              nombre
-            )
-          ''')
+          .select('id, dia_semana, hora_inicio, hora_fin, sucursal_id')
           .eq('doctor_id', widget.doctorId);
 
-      final List<Map<String, dynamic>> fetchedHorarios =
-          List<Map<String, dynamic>>.from(data);
+      print('Horarios encontrados: ${horariosData.length}');
+      print('Datos: $horariosData');
 
+      // Cargar sucursales aparte
+      final sucursalesData = await supabase
+          .from('sucursales')
+          .select('id, nombre');
+
+      print('Sucursales encontradas: ${sucursalesData.length}');
+
+      // Mapear sucursales por ID
+      final sucursalMap = {
+        for (var s in sucursalesData)
+        s['id']: s
+      };
+
+      // Construir horarios enriquecidos con datos de sucursal
+      final fetchedHorarios =
+          List<Map<String, dynamic>>.from(horariosData);
+
+      for (var h in fetchedHorarios) {
+        h['sucursal_data'] = sucursalMap[h['sucursal_id']];
+      }
+
+      // Extraer sucursales únicas
       final Map<String, Map<String, dynamic>> uniqueBranches = {};
       for (var h in fetchedHorarios) {
-        final sucursal = h['sucursales'];
-        if (sucursal != null) {
-          uniqueBranches[sucursal['id']] = {
-            'id': sucursal['id'],
-            'nombre': sucursal['nombre'],
+        final sucursalId = h['sucursal_id'];
+        final sucursalData = h['sucursal_data'];
+        if (sucursalId != null) {
+          uniqueBranches[sucursalId] = {
+            'id': sucursalId,
+            'nombre': sucursalData?['nombre'] ?? 'Sucursal',
           };
         }
       }
+
+      print('Sucursales únicas: ${uniqueBranches.length}');
 
       if (mounted) {
         setState(() {
@@ -119,6 +140,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         });
       }
     } catch (e) {
+      print('Error al cargar horarios: $e');
       if (mounted) {
         setState(() {
           _isLoadingData = false;
@@ -181,7 +203,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   List<Map<String, dynamic>> get _currentBranchHorarios {
     if (_selectedBranch == null) return [];
     return _horarios
-        .where((h) => h['sucursales']['id'] == _selectedBranch!['id'])
+        .where((h) => h['sucursal_id'] == _selectedBranch!['id'])
         .toList();
   }
 
@@ -256,7 +278,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
+      final user = context.read<UserProvider>().user;
       if (user == null) throw Exception('No estás autenticado.');
 
       // 1. Formatear la hora (de "2:00 PM" a "14:00:00")
@@ -436,7 +458,44 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Branch Selection
-                  if (_sucursales.isNotEmpty) ...[
+                  if (_sucursales.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AltheaColors.borderLight),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.event_busy_rounded,
+                            size: 48,
+                            color: AltheaColors.textSecondary.withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No hay horarios disponibles',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AltheaColors.navy,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Este doctor aún no ha configurado sus horarios de atención. Por favor contacta a la recepción para más información.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AltheaColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Branch Selection
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(

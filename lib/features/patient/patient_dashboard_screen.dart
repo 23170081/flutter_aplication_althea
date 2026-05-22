@@ -28,7 +28,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   Future<void> _fetchUpcomingAppointments() async {
     try {
       final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
+      final user = context.read<UserProvider>().user;
       if (user == null) throw Exception('No autenticado');
 
       final data = await supabase

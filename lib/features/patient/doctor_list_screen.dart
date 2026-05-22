@@ -30,7 +30,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
     try {
       final response = await Supabase.instance.client
           .from('usuarios')
-          .select('id, nombre_completo, doctores(especialidad)')
+          .select('id, nombre_completo, doctores(id, especialidad)')
           .eq('rol', 'doctor');
 
       final List<Map<String, String>> fetchedDoctors = [];
@@ -39,19 +39,22 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
       for (var user in response) {
         final doctoresData = user['doctores'];
         String specialty = 'General';
+        String doctorId = user['id'].toString(); // Fallback
         
         if (doctoresData != null) {
           if (doctoresData is List && doctoresData.isNotEmpty) {
             specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
+            doctorId = doctoresData[0]['id']?.toString() ?? user['id'].toString();
           } else if (doctoresData is Map) {
             specialty = doctoresData['especialidad']?.toString() ?? 'General';
+            doctorId = doctoresData['id']?.toString() ?? user['id'].toString();
           }
         }
 
         fetchedSpecialties.add(specialty);
 
         fetchedDoctors.add({
-          'id': user['id'].toString(),
+          'id': doctorId, // Usar doctores.id en lugar de usuarios.id
           'name': user['nombre_completo']?.toString() ?? 'Doctor',
           'specialty': specialty,
           'rating': '5.0', // Dato simulado
