@@ -44,5 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-#DatosDePrueba.txt
-#DB_SCHEMA.txt
+DatosDePrueba.txt
+DB_SCHEMA.txt
