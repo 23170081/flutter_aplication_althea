@@ -43,6 +43,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   bool _isLoadingData = true;
   List<String> _bookedTimes = [];
   bool _isLoadingTimes = false;
+  List<Map<String, dynamic>> _blockedDates = [];
+  final ScrollController _scrollController = ScrollController();
+  late DateTime _carruselStartDate;
 
   bool get _isCardNameValid => _cardName.trim().length >= 3;
 
@@ -79,7 +82,36 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _carruselStartDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 15));
     _fetchDoctorSchedules();
+    _fetchBlockedDates();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchBlockedDates() async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final data = await supabase
+          .from('bloqueos_doctor')
+          .select('*')
+          .eq('doctor_id', widget.doctorId)
+          .gte('fecha', DateTime.now().toIso8601String().split('T')[0]);
+
+      if (mounted) {
+        setState(() {
+          _blockedDates = (data as List<dynamic>).cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      print('Error al cargar bloqueos: $e');
+    }
   }
 
   Future<void> _fetchDoctorSchedules() async {
@@ -214,17 +246,53 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         .toList();
   }
 
+  void _scrollToSelectedDay(DateTime selectedDay) {
+    if (!_scrollController.hasClients) return;
+
+    final targetDate = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+    );
+    final difference = targetDate.difference(_carruselStartDate).inDays;
+
+    if (difference >= 0 && difference < 60) {
+      final viewportWidth = MediaQuery.of(context).size.width - 40;
+      final dayWidth = 82.0; // 70 width + 12 margin
+      final maxScroll = (60 * dayWidth) - viewportWidth;
+
+      final targetOffset =
+          ((difference * dayWidth) - (viewportWidth / 2) + 41.0).clamp(
+            0.0,
+            maxScroll > 0 ? maxScroll : 0.0,
+          );
+
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   List<DateTime> _generateNext8Dates() {
     final validDays = _validSqlDays;
     if (validDays.isEmpty) return [];
 
     List<DateTime> dates = [];
-    DateTime current = DateTime.now();
-    current = DateTime(current.year, current.month, current.day);
+    DateTime current = _carruselStartDate;
 
-    while (dates.length < 8) {
+    // Get blocked date strings for easy comparison
+    final blockedDateStrings = _blockedDates
+        .map((block) => block['fecha'] as String)
+        .toSet();
+
+    // Generate 60 days like doctor schedule screen
+    for (int i = 0; i < 60; i++) {
       final sqlDay = current.weekday - 1;
-      if (validDays.contains(sqlDay)) {
+      final dateString = '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
+      
+      if (validDays.contains(sqlDay) && !blockedDateStrings.contains(dateString)) {
         dates.add(current);
       }
       current = current.add(const Duration(days: 1));
@@ -248,6 +316,12 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
     int startHour = int.parse(inicioParts[0]);
     int endHour = int.parse(finParts[0]);
 
+    // Get blocked time slots for the selected date
+    final dateString = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+    final blockedTimeRanges = _blockedDates
+        .where((block) => block['fecha'] == dateString && block['hora_inicio'] != null)
+        .toList();
+
     List<String> slots = [];
     final now = DateTime.now();
     final isToday =
@@ -259,9 +333,30 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       if (isToday && h <= now.hour) {
         continue; // Omitir horas que ya pasaron
       }
+
+      // Check if this hour is blocked by doctor
+      bool isBlocked = false;
+      for (final block in blockedTimeRanges) {
+        final blockStart = int.parse(block['hora_inicio'].toString().split(':')[0]);
+        final blockEnd = int.parse(block['hora_fin'].toString().split(':')[0]);
+        if (h >= blockStart && h < blockEnd) {
+          isBlocked = true;
+          break;
+        }
+      }
+
+      if (isBlocked) continue;
+
+      // Check if this hour is already booked by another patient
       int displayHour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
       String amPm = h >= 12 ? 'PM' : 'AM';
-      slots.add('$displayHour:00 $amPm');
+      final timeSlot = '$displayHour:00 $amPm';
+      
+      if (_bookedTimes.contains(timeSlot)) {
+        continue; // Skip already booked time slots
+      }
+
+      slots.add(timeSlot);
     }
     return slots;
   }
@@ -292,7 +387,48 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       // 2. Formatear la fecha
       final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate!);
 
-      // 3. Insertar cita en Supabase
+      // 3. Verificación extra: Verificar si el horario fue bloqueado por el doctor
+      final blocks = await supabase
+          .from('bloqueos_doctor')
+          .select('*')
+          .eq('doctor_id', widget.doctorId)
+          .eq('fecha', dateFormatted);
+
+      for (final block in blocks) {
+        final horaInicio = block['hora_inicio'] as String?;
+        final horaFin = block['hora_fin'] as String?;
+
+        if (horaInicio == null && horaFin == null) {
+          // Bloqueo de todo el día
+          throw Exception('El doctor ha bloqueado esta fecha. Por favor selecciona otra fecha.');
+        }
+
+        if (horaInicio != null && horaFin != null) {
+          // Verificar si la hora está dentro del rango bloqueado
+          final blockStartHour = int.parse(horaInicio.split(':')[0]);
+          final blockEndHour = int.parse(horaFin.split(':')[0]);
+          
+          if (hour >= blockStartHour && hour < blockEndHour) {
+            throw Exception('El doctor ha bloqueado este horario. Por favor selecciona otro horario.');
+          }
+        }
+      }
+
+      // 4. Verificación extra: Verificar si el horario ya fue reservado por otro paciente
+      final existingAppointments = await supabase
+          .from('citas')
+          .select('id')
+          .eq('doctor_id', widget.doctorId)
+          .eq('sucursal_id', _selectedBranch!['id'])
+          .eq('fecha', dateFormatted)
+          .eq('hora', timeFormatted)
+          .neq('estado', 'cancelada');
+
+      if (existingAppointments.isNotEmpty) {
+        throw Exception('Este horario ya fue reservado por otro paciente. Por favor selecciona otro horario.');
+      }
+
+      // 5. Insertar cita en Supabase
       await supabase.from('citas').insert({
         'usuario_id': user.id,
         'doctor_id': widget.doctorId,
@@ -651,6 +787,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                               },
                             ),
                             child: SingleChildScrollView(
+                              controller: _scrollController,
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(
                                 parent: AlwaysScrollableScrollPhysics(),
@@ -677,8 +814,19 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                         setState(() {
                                           _selectedDate = date;
                                           _selectedTime = null;
+
+                                          // Update carousel if selected date is out of range
+                                          final diff = date.difference(_carruselStartDate).inDays;
+                                          if (diff < 0 || diff >= 60) {
+                                            _carruselStartDate = DateTime(
+                                              date.year,
+                                              date.month,
+                                              date.day,
+                                            ).subtract(const Duration(days: 15));
+                                          }
                                         });
                                         _fetchBookedTimesForDate();
+                                        _scrollToSelectedDay(date);
                                       },
                                       child: AnimatedContainer(
                                         duration: const Duration(
@@ -791,9 +939,15 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 initialDate: initial,
                                 firstDate: today,
                                 lastDate: today.add(const Duration(days: 90)),
+                                locale: const Locale('es', 'ES'),
                                 selectableDayPredicate: (DateTime val) {
                                   final sqlDay = val.weekday - 1;
-                                  return validDays.contains(sqlDay);
+                                  if (!validDays.contains(sqlDay)) return false;
+                                  
+                                  // Check if date is blocked by doctor
+                                  final dateString = '${val.year}-${val.month.toString().padLeft(2, '0')}-${val.day.toString().padLeft(2, '0')}';
+                                  final isBlocked = _blockedDates.any((block) => block['fecha'] == dateString);
+                                  return !isBlocked;
                                 },
                               );
                               if (d != null) {
@@ -907,10 +1061,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 spacing: 12,
                                 runSpacing: 12,
                                 children: _times.map((time) {
-                                  final isBooked = _bookedTimes.contains(time);
                                   final isSelected = _selectedTime == time;
                                   return GestureDetector(
-                                    onTap: (_selectedDate != null && !isBooked)
+                                    onTap: (_selectedDate != null)
                                         ? () => setState(
                                             () => _selectedTime = time,
                                           )
@@ -924,30 +1077,23 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                         vertical: 12,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: isBooked
-                                            ? AltheaColors.lightBg
-                                            : (isSelected
-                                                  ? AltheaColors.navy
-                                                  : Colors.white),
+                                        color: isSelected
+                                            ? AltheaColors.navy
+                                            : Colors.white,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isBooked
-                                              ? AltheaColors.borderLight
-                                              : (isSelected
-                                                    ? AltheaColors.navy
-                                                    : AltheaColors.borderLight),
+                                          color: isSelected
+                                              ? AltheaColors.navy
+                                              : AltheaColors.borderLight,
                                         ),
                                       ),
                                       child: Text(
                                         time,
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          color: isBooked
-                                              ? AltheaColors.textSecondary
-                                                    .withOpacity(0.5)
-                                              : (isSelected
-                                                    ? Colors.white
-                                                    : AltheaColors.navy),
+                                          color: isSelected
+                                              ? Colors.white
+                                              : AltheaColors.navy,
                                         ),
                                       ),
                                     ),

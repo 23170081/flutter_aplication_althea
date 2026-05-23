@@ -83,6 +83,21 @@ class _DoctorDayBlocksScreenState extends State<DoctorDayBlocksScreen> {
       try {
         final supabase = Supabase.instance.client;
         
+        // Check for existing appointments in the blocked dates/times
+        final affectedAppointments = await _checkAffectedAppointments(result);
+        
+        if (affectedAppointments.isNotEmpty) {
+          // Show alert dialog with number of affected patients
+          final confirmed = await _showAffectedPatientsAlert(affectedAppointments.length);
+          
+          if (!confirmed) {
+            return; // Doctor decided not to proceed
+          }
+          
+          // Cancel the affected appointments
+          await _cancelAffectedAppointments(affectedAppointments);
+        }
+        
         // Insert all blocks
         final blocksToInsert = result.map((block) => {
           'doctor_id': _doctorId,
@@ -96,7 +111,7 @@ class _DoctorDayBlocksScreenState extends State<DoctorDayBlocksScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${result.length} bloqueo(s) agregado(s) exitosamente.')),
+            SnackBar(content: Text('${result.length} bloqueo(s) agregado(s) exitosamente.${affectedAppointments.isNotEmpty ? ' ${affectedAppointments.length} cita(s) cancelada(s).' : ''}')),
           );
           _loadDayBlocks();
         }
@@ -202,6 +217,200 @@ class _DoctorDayBlocksScreenState extends State<DoctorDayBlocksScreen> {
       return '${parts[0]}:${parts[1]}';
     }
     return timeStr;
+  }
+
+  Future<List<Map<String, dynamic>>> _checkAffectedAppointments(
+    List<Map<String, dynamic>> blocks,
+  ) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final affectedAppointments = <Map<String, dynamic>>[];
+
+      if (_doctorId == null) return affectedAppointments;
+
+      for (final block in blocks) {
+        final fecha = block['fecha'] as String;
+        final horaInicio = block['hora_inicio'] as String?;
+        final horaFin = block['hora_fin'] as String?;
+
+        // Build query for appointments on this date
+        var query = supabase
+            .from('citas')
+            .select('*')
+            .eq('doctor_id', _doctorId!)
+            .eq('fecha', fecha)
+            .neq('estado', 'cancelada');
+
+        // If it's a time range block, filter by time
+        if (horaInicio != null && horaFin != null) {
+          // Get all appointments and filter in code since Supabase doesn't support time range filtering directly
+          final appointments = await query;
+          for (final appointment in appointments) {
+            final appointmentTime = appointment['hora'] as String;
+            if (_isTimeInRange(appointmentTime, horaInicio, horaFin)) {
+              affectedAppointments.add(appointment);
+            }
+          }
+        } else {
+          // All day block - get all appointments
+          final appointments = await query;
+          affectedAppointments.addAll(appointments);
+        }
+      }
+
+      return affectedAppointments;
+    } catch (e) {
+      print('Error checking affected appointments: $e');
+      return [];
+    }
+  }
+
+  bool _isTimeInRange(String appointmentTime, String blockStart, String blockEnd) {
+    // Parse times to compare
+    final apptParts = appointmentTime.split(':');
+    final apptHour = int.parse(apptParts[0]);
+    
+    final startParts = blockStart.split(':');
+    final endParts = blockEnd.split(':');
+    final startHour = int.parse(startParts[0]);
+    final endHour = int.parse(endParts[0]);
+
+    return apptHour >= startHour && apptHour < endHour;
+  }
+
+  Future<bool> _showAffectedPatientsAlert(int affectedCount) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.warning_rounded,
+                color: Colors.orange,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Advertencia',
+                style: TextStyle(
+                  color: AltheaColors.navy,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Estás a punto de bloquear fechas que tienen citas programadas.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AltheaColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.people_rounded,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$affectedCount cita(s) será(n) cancelada(s)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '¿Deseas continuar y cancelar estas citas?',
+              style: TextStyle(
+                fontSize: 14,
+                color: AltheaColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(
+                color: AltheaColors.textSecondary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Continuar y Cancelar',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed ?? false;
+  }
+
+  Future<void> _cancelAffectedAppointments(
+    List<Map<String, dynamic>> appointments,
+  ) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = context.read<UserProvider>().user;
+
+      for (final appointment in appointments) {
+        await supabase
+            .from('citas')
+            .update({
+              'estado': 'cancelada',
+              'cancelada_por': user?.id,
+              'fecha_cancelacion': DateTime.now().toIso8601String(),
+            })
+            .eq('id', appointment['id']);
+      }
+    } catch (e) {
+      print('Error canceling appointments: $e');
+      rethrow;
+    }
   }
 
   @override

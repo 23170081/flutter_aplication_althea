@@ -1,0 +1,112 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.bloqueos_doctor (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  doctor_id uuid,
+  fecha date NOT NULL,
+  hora_inicio time without time zone,
+  hora_fin time without time zone,
+  motivo text,
+  CONSTRAINT bloqueos_doctor_pkey PRIMARY KEY (id),
+  CONSTRAINT bloqueos_doctor_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctores(id)
+);
+CREATE TABLE public.citas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid,
+  doctor_id uuid,
+  sucursal_id uuid,
+  fecha date NOT NULL,
+  hora time without time zone NOT NULL,
+  estado text DEFAULT 'programada'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  creada_por uuid,
+  cancelada_por uuid,
+  fecha_cancelacion timestamp with time zone,
+  CONSTRAINT citas_pkey PRIMARY KEY (id),
+  CONSTRAINT citas_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctores(id),
+  CONSTRAINT citas_sucursal_id_fkey FOREIGN KEY (sucursal_id) REFERENCES public.sucursales(id),
+  CONSTRAINT citas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT citas_creada_por_fkey FOREIGN KEY (creada_por) REFERENCES public.usuarios(id),
+  CONSTRAINT citas_cancelada_por_fkey FOREIGN KEY (cancelada_por) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.doctores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  especialidad text,
+  CONSTRAINT doctores_pkey PRIMARY KEY (id),
+  CONSTRAINT doctores_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.expedientes_medicos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid UNIQUE,
+  numero_expediente text NOT NULL UNIQUE,
+  fecha_apertura date DEFAULT CURRENT_DATE,
+  CONSTRAINT expedientes_medicos_pkey PRIMARY KEY (id),
+  CONSTRAINT expedientes_medicos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.horarios_doctor (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  doctor_id uuid,
+  sucursal_id uuid,
+  dia_semana integer CHECK (dia_semana >= 0 AND dia_semana <= 6),
+  hora_inicio time without time zone NOT NULL,
+  hora_fin time without time zone NOT NULL,
+  CONSTRAINT horarios_doctor_pkey PRIMARY KEY (id),
+  CONSTRAINT horarios_doctor_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctores(id),
+  CONSTRAINT horarios_doctor_sucursal_id_fkey FOREIGN KEY (sucursal_id) REFERENCES public.sucursales(id)
+);
+CREATE TABLE public.notas_medicas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  expediente_id uuid,
+  doctor_id uuid,
+  fecha_hora timestamp with time zone DEFAULT now(),
+  motivo_consulta text NOT NULL,
+  diagnostico text NOT NULL,
+  tratamiento text,
+  CONSTRAINT notas_medicas_pkey PRIMARY KEY (id),
+  CONSTRAINT notas_medicas_expediente_id_fkey FOREIGN KEY (expediente_id) REFERENCES public.expedientes_medicos(id),
+  CONSTRAINT notas_medicas_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctores(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid,
+  title text NOT NULL,
+  message text NOT NULL,
+  type text NOT NULL,
+  is_read boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.recepcionistas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  sucursal_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recepcionistas_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_usuario FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT fk_sucursal FOREIGN KEY (sucursal_id) REFERENCES public.sucursales(id)
+);
+CREATE TABLE public.sucursales (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre text NOT NULL,
+  direccion text,
+  telefono text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sucursales_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.usuarios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre_completo text NOT NULL,
+  correo text UNIQUE,
+  telefono text NOT NULL UNIQUE,
+  fecha_nacimiento date,
+  rol text NOT NULL CHECK (rol = ANY (ARRAY['admin'::text, 'doctor'::text, 'recepcionista'::text, 'paciente'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  tipo_sangre text NOT NULL DEFAULT 'A+'::text CHECK (tipo_sangre = ANY (ARRAY['A+'::text, 'A-'::text, 'B+'::text, 'B-'::text, 'O+'::text, 'O-'::text, 'AB+'::text, 'AB-'::text])),
+  registrado_por text NOT NULL DEFAULT '1'::text,
+  curp text NOT NULL UNIQUE CHECK (length(curp) <= 18),
+  password text NOT NULL,
+  CONSTRAINT usuarios_pkey PRIMARY KEY (id)
+);

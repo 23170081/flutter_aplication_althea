@@ -21,17 +21,16 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
   
   // Horarios por día de semana (0=Lunes, 6=Domingo)
   final Map<int, ScheduleConfig> _schedules = {
-    0: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    1: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    2: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    3: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    4: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    5: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
-    6: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+    0: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    1: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    2: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    3: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    4: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    5: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
+    6: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
   };
 
   List<Map<String, dynamic>> _sucursales = [];
-  String? _selectedSucursalId;
 
   final List<String> _dayNames = [
     'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'
@@ -70,9 +69,6 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
           .select('id, nombre');
       
       _sucursales = List<Map<String, dynamic>>.from(sucursalesData);
-      if (_sucursales.isNotEmpty) {
-        _selectedSucursalId = _sucursales[0]['id'];
-      }
 
       // Obtener horarios existentes
       final horariosData = await supabase
@@ -87,10 +83,8 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
             enabled: true,
             startTime: h['hora_inicio'].toString().substring(0, 5),
             endTime: h['hora_fin'].toString().substring(0, 5),
+            sucursalId: h['sucursal_id'] as String?,
           );
-          if (_selectedSucursalId == null) {
-            _selectedSucursalId = h['sucursal_id'] as String;
-          }
         }
       }
 
@@ -106,7 +100,7 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
   }
 
   Future<void> _saveSchedules() async {
-    if (_doctorId == null || _selectedSucursalId == null) return;
+    if (_doctorId == null) return;
 
     setState(() => _isSaving = true);
 
@@ -122,10 +116,10 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
       // Insertar nuevos horarios
       final horariosToInsert = <Map<String, dynamic>>[];
       for (var entry in _schedules.entries) {
-        if (entry.value.enabled) {
+        if (entry.value.enabled && entry.value.sucursalId != null) {
           horariosToInsert.add({
             'doctor_id': _doctorId!,
-            'sucursal_id': _selectedSucursalId!,
+            'sucursal_id': entry.value.sucursalId!,
             'dia_semana': entry.key,
             'hora_inicio': '${entry.value.startTime}:00',
             'hora_fin': '${entry.value.endTime}:00',
@@ -221,53 +215,6 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Sucursal selection
-                  if (_sucursales.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AltheaColors.borderLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Sucursal',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AltheaColors.navy,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            value: _selectedSucursalId,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: AltheaColors.lightBg,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            items: _sucursales.map((sucursal) {
-                              return DropdownMenuItem<String>(
-                                value: sucursal['id'],
-                                child: Text(sucursal['nombre']),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedSucursalId = value);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
                   // Schedule cards
                   ...List.generate(7, (index) {
                     final day = index;
@@ -299,20 +246,70 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
                                   activeColor: AltheaColors.navy,
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  _dayNames[day],
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: config.enabled 
-                                        ? AltheaColors.navy 
-                                        : AltheaColors.textSecondary,
+                                Expanded(
+                                  child: Text(
+                                    _dayNames[day],
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: config.enabled 
+                                          ? AltheaColors.navy 
+                                          : AltheaColors.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             if (config.enabled) ...[
                               const SizedBox(height: 16),
+                              // Sucursal selector per day
+                              if (_sucursales.isNotEmpty) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AltheaColors.lightBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AltheaColors.borderLight),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Sucursal',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AltheaColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      DropdownButtonFormField<String>(
+                                        value: config.sucursalId,
+                                        decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                        ),
+                                        items: _sucursales.map((sucursal) {
+                                          return DropdownMenuItem<String>(
+                                            value: sucursal['id'],
+                                            child: Text(sucursal['nombre']),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _schedules[day] = config.copyWith(sucursalId: value);
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
                               Row(
                                 children: [
                                   Expanded(
@@ -386,22 +383,26 @@ class ScheduleConfig {
   final bool enabled;
   final String startTime;
   final String endTime;
+  final String? sucursalId;
 
   ScheduleConfig({
     required this.enabled,
     required this.startTime,
     required this.endTime,
+    this.sucursalId,
   });
 
   ScheduleConfig copyWith({
     bool? enabled,
     String? startTime,
     String? endTime,
+    String? sucursalId,
   }) {
     return ScheduleConfig(
       enabled: enabled ?? this.enabled,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      sucursalId: sucursalId ?? this.sucursalId,
     );
   }
 }
