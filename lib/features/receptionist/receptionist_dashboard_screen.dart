@@ -49,128 +49,76 @@ class ReceptionistDashboardScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                Column(
-                  children: [
-                    AltheaHeader(
-                      roleLabel: 'RECEPCIÓN',
-                      userName: user?.name ?? 'Recepcionista',
-                      subtitle: 'Bienvenida,',
-                      bottomPadding: 30,
-                      onLogout: () {
-                        context.read<UserProvider>().logout();
-                        context.go('/');
-                      },
+            AltheaHeader(
+              roleLabel: 'RECEPCIÓN',
+              userName: user?.name ?? 'Recepcionista',
+              subtitle: 'Bienvenida,',
+              bottomPadding: 24,
+              onLogout: () {
+                context.read<UserProvider>().logout();
+                context.go('/');
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                    const SizedBox(height: 280),
                   ],
                 ),
-                Positioned(
-                  bottom: 0,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: GridView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 1.8,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                      children: [
-                        _ReceptionBtn(
-                          icon: Icons.search_rounded,
-                          label: 'Buscar Paciente',
-                          primary: true,
-                          onTap: () =>
-                              context.go('/receptionist/search-patient'),
-                        ),
-                        _ReceptionBtn(
-                          icon: Icons.person_add_rounded,
-                          label: 'Nuevo Paciente',
-                          dark: true,
-                          onTap: () {},
-                        ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 520;
+                    final buttonWidth = isWide
+                        ? (constraints.maxWidth - 10) / 2
+                        : constraints.maxWidth;
 
-                        _ReceptionBtn(
-                          icon: Icons.receipt_long_rounded,
-                          label: 'Cobros y Facturas',
-                          onTap: () {},
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          width: buttonWidth,
+                          height: 118,
+                          child: _ReceptionBtn(
+                            icon: Icons.search_rounded,
+                            label: 'Buscar Paciente',
+                            primary: true,
+                            onTap: () =>
+                                context.go('/receptionist/search-patient'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: buttonWidth,
+                          height: 118,
+                          child: _ReceptionBtn(
+                            icon: Icons.person_add_rounded,
+                            label: 'Nuevo Paciente',
+                            dark: true,
+                            onTap: () => context.go('/receptionist/register-patient'),
+                          ),
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Daily summary
-                  const Text(
-                    'Resumen del Día',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AltheaColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AltheaColors.navy, AltheaColors.navyMid],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: Column(
-                      children: [
-                        _SummaryRow(
-                          icon: Icons.calendar_today_rounded,
-                          label: 'Citas Hoy',
-                          value: '42',
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          icon: Icons.access_time_rounded,
-                          label: 'Pendientes',
-                          value: '15',
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          icon: Icons.person_add_rounded,
-                          label: 'Nuevos Pacientes',
-                          value: '8',
-                          last: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
                   // Activity
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
