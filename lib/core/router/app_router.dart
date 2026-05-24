@@ -8,9 +8,12 @@ import 'package:flutter_application_althea/features/patient/doctor_list_screen.d
 import 'package:flutter_application_althea/features/patient/appointment_booking_screen.dart';
 import 'package:flutter_application_althea/features/patient/my_appointments_screen.dart';
 import 'package:flutter_application_althea/features/patient/patient_profile_screen.dart';
+import 'package:flutter_application_althea/features/patient/refunds_screen.dart';
 import 'package:flutter_application_althea/features/doctor/doctor_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/doctor/doctor_schedule_screen.dart';
 import 'package:flutter_application_althea/features/doctor/doctor_patients_screen.dart';
+import 'package:flutter_application_althea/features/doctor/doctor_day_blocks_screen.dart';
+import 'package:flutter_application_althea/features/doctor/doctor_schedule_config_screen.dart';
 import 'package:flutter_application_althea/features/doctor/medical_record_screen.dart';
 import 'package:flutter_application_althea/features/receptionist/receptionist_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/receptionist/search_patient_screen.dart';
@@ -61,6 +64,10 @@ GoRouter createRouter(BuildContext context) {
         path: '/patient/profile',
         builder: (_, _) => const PatientProfileScreen(),
       ),
+      GoRoute(
+        path: '/patient/refunds',
+        builder: (_, _) => const RefundsScreen(),
+      ),
 
       // Doctor
       GoRoute(
@@ -70,6 +77,14 @@ GoRouter createRouter(BuildContext context) {
       GoRoute(
         path: '/doctor/schedule',
         builder: (_, _) => const DoctorScheduleScreen(),
+      ),
+      GoRoute(
+        path: '/doctor/schedule-config',
+        builder: (_, _) => const DoctorScheduleConfigScreen(),
+      ),
+      GoRoute(
+        path: '/doctor/day-blocks',
+        builder: (_, _) => const DoctorDayBlocksScreen(),
       ),
       GoRoute(
         path: '/doctor/patients',

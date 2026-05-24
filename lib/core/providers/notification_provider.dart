@@ -13,7 +13,6 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   RealtimeChannel? _channel;
-  StreamSubscription? _userSubscription;
 
   List<NotificationModel> get notifications => _notifications;
   bool get isLoading => _isLoading;
@@ -50,11 +49,21 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final userId = _userProvider.user!.id;
+      debugPrint('USER ID PROVIDER: $userId');
+      
+      // First, check ALL notifications without filter
+      final allData = await _supabase
+          .from('notifications')
+          .select();
+      debugPrint('ALL NOTIFICATIONS (no filter): $allData');
+      
+      // Then check with filter
       final data = await _supabase
           .from('notifications')
           .select()
           .eq('user_id', userId)
           .order('created_at', ascending: false);
+      debugPrint('FILTERED NOTIFICATIONS (user_id=$userId): $data');
 
       _notifications = (data as List).map((json) => NotificationModel.fromJson(json)).toList();
     } catch (e) {
@@ -68,7 +77,10 @@ class NotificationProvider extends ChangeNotifier {
   void _subscribeToNotifications() {
     if (_userProvider.user == null) return;
     
-    _channel?.unsubscribe();
+    if (_channel != null) {
+      _supabase.removeChannel(_channel!);
+      _channel = null;
+    }
     final userId = _userProvider.user!.id;
 
     _channel = _supabase.channel('public:notifications:user_$userId');
@@ -83,15 +95,13 @@ class NotificationProvider extends ChangeNotifier {
       ),
       callback: (payload) {
         final newRecord = payload.newRecord;
-        if (newRecord != null) {
-          final n = NotificationModel.fromJson(newRecord);
-          // Insert at the top
-          _notifications.insert(0, n);
-          if (!n.isRead) {
-            _showOverlay(n);
-          }
-          notifyListeners();
+        final n = NotificationModel.fromJson(newRecord);
+        // Insert at the top
+        _notifications.insert(0, n);
+        if (!n.isRead) {
+          _showOverlay(n);
         }
+        notifyListeners();
       },
     ).onPostgresChanges(
       event: PostgresChangeEvent.update,
@@ -104,13 +114,11 @@ class NotificationProvider extends ChangeNotifier {
       ),
       callback: (payload) {
         final newRecord = payload.newRecord;
-        if (newRecord != null) {
-          final updated = NotificationModel.fromJson(newRecord);
-          final index = _notifications.indexWhere((old) => old.id == updated.id);
-          if (index != -1) {
-            _notifications[index] = updated;
-            notifyListeners();
-          }
+        final updated = NotificationModel.fromJson(newRecord);
+        final index = _notifications.indexWhere((old) => old.id == updated.id);
+        if (index != -1) {
+          _notifications[index] = updated;
+          notifyListeners();
         }
       },
     ).subscribe();
@@ -169,8 +177,10 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _clearData() {
-    _channel?.unsubscribe();
-    _channel = null;
+    if (_channel != null) {
+      _supabase.removeChannel(_channel!);
+      _channel = null;
+    }
     _notifications = [];
     _isLoading = false;
     notifyListeners();
@@ -178,8 +188,10 @@ class NotificationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _channel?.unsubscribe();
-    _userSubscription?.cancel();
+    if (_channel != null) {
+      _supabase.removeChannel(_channel!);
+      _channel = null;
+    }
     super.dispose();
   }
 }

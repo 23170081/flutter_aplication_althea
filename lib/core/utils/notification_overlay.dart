@@ -71,10 +71,10 @@ class _NotificationToastState extends State<_NotificationToast> with SingleTicke
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Positioned(
-          top: MediaQuery.of(context).padding.top + 20,
-          left: 16,
-          right: 16,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 20),
           child: Material(
             color: Colors.transparent,
             child: SlideTransition(
@@ -87,6 +87,8 @@ class _NotificationToastState extends State<_NotificationToast> with SingleTicke
                 },
                 onTap: _dismiss,
                 child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -136,6 +138,7 @@ class _NotificationToastState extends State<_NotificationToast> with SingleTicke
             ),
           ),
         ),
+      ),
     );
   }
 }

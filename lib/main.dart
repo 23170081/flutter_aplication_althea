@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -26,8 +27,8 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProxyProvider<UserProvider, NotificationProvider>(
-          create: (_) => NotificationProvider(UserProvider()),
-          update: (_, userProvider, __) => NotificationProvider(userProvider),
+          create: (context) => NotificationProvider(context.read<UserProvider>()),
+          update: (_, userProvider, notificationProvider) => notificationProvider ?? NotificationProvider(userProvider),
         ),
       ],
       child: const AltheaApp(),
@@ -53,6 +54,15 @@ class _AltheaAppState extends State<AltheaApp> {
       theme: AltheaTheme.theme.copyWith(
         textTheme: GoogleFonts.interTextTheme(AltheaTheme.theme.textTheme),
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'MX'),
+        Locale('en', 'US'),
+      ],
       routerConfig: _router,
     );
   }

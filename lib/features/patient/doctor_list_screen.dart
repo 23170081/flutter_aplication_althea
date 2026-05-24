@@ -29,23 +29,25 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
   Future<void> _fetchDoctors() async {
     try {
       final response = await Supabase.instance.client
-          .from('doctores')
-          .select('id, especialidad, usuarios(id, nombre_completo)');
+          .from('usuarios')
+          .select('id, nombre_completo, doctores(id, especialidad)')
+          .eq('rol', 'doctor');
 
       final List<Map<String, String>> fetchedDoctors = [];
       final Set<String> fetchedSpecialties = {'Todos'};
 
-      for (var doctor in response) {
-        final doctorId = doctor['id']?.toString() ?? '';
-        String specialty = doctor['especialidad']?.toString() ?? 'General';
-        String doctorName = 'Doctor';
-
-        final usuariosData = doctor['usuarios'];
-        if (usuariosData != null) {
-          if (usuariosData is List && usuariosData.isNotEmpty) {
-            doctorName = usuariosData[0]['nombre_completo']?.toString() ?? doctorName;
-          } else if (usuariosData is Map) {
-            doctorName = usuariosData['nombre_completo']?.toString() ?? doctorName;
+      for (var user in response) {
+        final doctoresData = user['doctores'];
+        String specialty = 'General';
+        String doctorId = user['id'].toString(); // Fallback
+        
+        if (doctoresData != null) {
+          if (doctoresData is List && doctoresData.isNotEmpty) {
+            specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
+            doctorId = doctoresData[0]['id']?.toString() ?? user['id'].toString();
+          } else if (doctoresData is Map) {
+            specialty = doctoresData['especialidad']?.toString() ?? 'General';
+            doctorId = doctoresData['id']?.toString() ?? user['id'].toString();
           }
         }
 
@@ -54,8 +56,8 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
         fetchedSpecialties.add(specialty);
 
         fetchedDoctors.add({
-          'id': doctorId,
-          'name': doctorName,
+          'id': doctorId, // Usar doctores.id en lugar de usuarios.id
+          'name': user['nombre_completo']?.toString() ?? 'Doctor',
           'specialty': specialty,
           'rating': '5.0', // Dato simulado
           'reviews': '0',  // Dato simulado

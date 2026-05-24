@@ -1,0 +1,400 @@
+-- =====================================================
+-- EXTENSION NECESARIA
+-- =====================================================
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- =====================================================
+-- LIMPIAR TABLAS (OPCIONAL)
+-- =====================================================
+DELETE FROM public.notifications;
+DELETE FROM public.notas_medicas;
+DELETE FROM public.citas;
+DELETE FROM public.bloqueos_doctor;
+DELETE FROM public.horarios_doctor;
+DELETE FROM public.recepcionistas;
+DELETE FROM public.doctores;
+DELETE FROM public.expedientes_medicos;
+DELETE FROM public.sucursales;
+DELETE FROM public.usuarios;
+
+-- =====================================================
+-- SUCURSALES
+-- =====================================================
+INSERT INTO public.sucursales (
+  id,
+  nombre,
+  direccion,
+  telefono
+)
+VALUES
+(
+  gen_random_uuid(),
+  'Sucursal Centro',
+  'Av. Álvaro Obregón 1200, Centro, Culiacán, Sinaloa',
+  '6671110001'
+),
+(
+  gen_random_uuid(),
+  'Sucursal Las Quintas',
+  'Blvd. Las Quintas 455, Las Quintas, Culiacán, Sinaloa',
+  '6671110002'
+),
+(
+  gen_random_uuid(),
+  'Sucursal Tres Ríos',
+  'Blvd. Enrique Sánchez Alonso 2301, Tres Ríos, Culiacán, Sinaloa',
+  '6671110003'
+);
+
+-- =====================================================
+-- ADMINISTRADOR
+-- =====================================================
+INSERT INTO public.usuarios (
+  id,
+  nombre_completo,
+  correo,
+  telefono,
+  fecha_nacimiento,
+  rol,
+  tipo_sangre,
+  registrado_por,
+  curp,
+  password
+)
+VALUES (
+  gen_random_uuid(),
+  'Mariana López Castro',
+  'admin@clinica.local',
+  '6671000001',
+  '1988-04-12',
+  'admin',
+  'O+',
+  'system',
+  'LOCM880412MSLPRS01',
+  crypt('admin123', gen_salt('bf'))
+);
+
+-- =====================================================
+-- RECEPCIONISTA
+-- password = recepcion123
+-- =====================================================
+INSERT INTO public.usuarios (
+  id,
+  nombre_completo,
+  correo,
+  telefono,
+  fecha_nacimiento,
+  rol,
+  tipo_sangre,
+  registrado_por,
+  curp,
+  password
+)
+VALUES (
+  gen_random_uuid(),
+  'Fernanda Ruiz Soto',
+  'recepcion@clinica.local',
+  '6671000002',
+  '1995-11-08',
+  'recepcionista',
+  'A+',
+  'system',
+  'RUSF951108MSLZTN02',
+  crypt('recepcion123', gen_salt('bf'))
+);
+
+-- =====================================================
+-- 10 DOCTORES
+-- password = doctor123
+-- =====================================================
+INSERT INTO public.usuarios (
+  id,
+  nombre_completo,
+  correo,
+  telefono,
+  fecha_nacimiento,
+  rol,
+  tipo_sangre,
+  registrado_por,
+  curp,
+  password
+)
+VALUES
+(gen_random_uuid(),'Dr. José Manuel Cárdenas','jcardenas@clinica.local','6672000001','1980-03-15','doctor','O+','admin','CAJJ800315HSLRRS01',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dra. Patricia Gómez León','pgomez@clinica.local','6672000002','1985-06-20','doctor','A+','admin','GOLP850620MSLMTR02',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dr. Ricardo Ibarra Vega','ribarra@clinica.local','6672000003','1979-09-10','doctor','B+','admin','IAVR790910HSLBGC03',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dra. Daniela Torres Ruiz','dtorres@clinica.local','6672000004','1990-12-01','doctor','AB+','admin','TORD901201MSLRZN04',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dr. Ernesto Valdez Mora','evaldez@clinica.local','6672000005','1982-01-19','doctor','O-','admin','VAME820119HSLLRR05',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dra. Karla Sánchez Soto','ksanchez@clinica.local','6672000006','1987-08-25','doctor','A-','admin','SASK870825MSLNNR06',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dr. Hugo Medina Flores','hmedina@clinica.local','6672000007','1978-11-14','doctor','B-','admin','MEFH781114HSLDDR07',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dra. Alejandra Castro Pérez','acastro@clinica.local','6672000008','1991-02-09','doctor','AB-','admin','CAPA910209MSLSTR08',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dr. Luis Fernando Ramos','lramos@clinica.local','6672000009','1984-07-07','doctor','O+','admin','RAFL840707HSLMMS09',crypt('doctor123', gen_salt('bf'))),
+(gen_random_uuid(),'Dra. Verónica Núñez Silva','vnunez@clinica.local','6672000010','1989-05-30','doctor','A+','admin','NUSV890530MSLZLR10',crypt('doctor123', gen_salt('bf')));
+
+-- =====================================================
+-- 20 PACIENTES
+-- password = paciente123
+-- =====================================================
+INSERT INTO public.usuarios (
+  id,
+  nombre_completo,
+  correo,
+  telefono,
+  fecha_nacimiento,
+  rol,
+  tipo_sangre,
+  registrado_por,
+  curp,
+  password
+)
+VALUES
+(gen_random_uuid(),'Carlos Mendoza Ruiz','cmendoza@gmail.com','6673000001','1994-01-15','paciente','O+','recepcion','MERC940115HSLNNR01',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Laura Pérez Castro','lperez@gmail.com','6673000002','1992-03-18','paciente','A+','recepcion','PECL920318MSLRRA02',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Miguel Ángel Soto','msoto@gmail.com','6673000003','1987-06-25','paciente','B+','recepcion','SOMM870625HSLTTL03',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Andrea Flores Luna','aflores@gmail.com','6673000004','1999-09-12','paciente','AB+','recepcion','FOLA990912MSLNRD04',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Jorge Ramírez Vega','jramirez@gmail.com','6673000005','1980-11-03','paciente','O-','recepcion','RAVJ801103HSLMMG05',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Paola Castro Mejía','pcastro@gmail.com','6673000006','1995-04-29','paciente','A-','recepcion','CAMP950429MSLJPL06',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Fernando López Díaz','flopez@gmail.com','6673000007','1988-07-14','paciente','B-','recepcion','LODF880714HSLPRR07',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Sofía Herrera Ruiz','sherrera@gmail.com','6673000008','2000-02-20','paciente','AB-','recepcion','HERS000220MSLRTF08',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Gabriel Moreno Silva','gmoreno@gmail.com','6673000009','1975-05-08','paciente','O+','recepcion','MOSG750508HSLNRL09',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Natalia Quintero Paz','nquintero@gmail.com','6673000010','1997-10-31','paciente','A+','recepcion','QUPN971031MSLNTL10',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Eduardo Salazar Pérez','esalazar@gmail.com','6673000011','1986-02-12','paciente','O+','recepcion','SAPE860212HSLRDR11',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Valeria Cruz Soto','vcruz@gmail.com','6673000012','1993-05-16','paciente','B+','recepcion','CUSV930516MSLTTL12',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Mario Duarte León','mduarte@gmail.com','6673000013','1981-08-08','paciente','A+','recepcion','DULM810808HSLNNR13',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Lucía Navarro Gil','lnavarro@gmail.com','6673000014','1998-06-11','paciente','AB+','recepcion','NAGL980611MSLPLR14',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Iván Beltrán Ruiz','ibeltran@gmail.com','6673000015','1990-01-09','paciente','O-','recepcion','BERI900109HSLRLS15',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Camila Ortega Flores','cortega@gmail.com','6673000016','1996-07-21','paciente','A-','recepcion','OEFC960721MSLNNR16',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Daniel Fuentes Mora','dfuentes@gmail.com','6673000017','1983-04-03','paciente','B-','recepcion','FUMD830403HSLRRL17',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'María Elena Ríos','mrios@gmail.com','6673000018','1977-09-29','paciente','AB-','recepcion','RIEM770929MSLTMR18',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Óscar Villalobos Díaz','ovilla@gmail.com','6673000019','1989-12-13','paciente','O+','recepcion','VIDO891213HSLRZS19',crypt('paciente123', gen_salt('bf'))),
+(gen_random_uuid(),'Renata Campos Vega','rcampos@gmail.com','6673000020','2001-03-30','paciente','A+','recepcion','CAVR010330MSLPLL20',crypt('paciente123', gen_salt('bf')));
+
+-- =====================================================
+-- DOCTORES + ESPECIALIDADES
+-- =====================================================
+INSERT INTO public.doctores (
+  id,
+  usuario_id,
+  especialidad
+)
+SELECT
+  gen_random_uuid(),
+  id,
+  CASE
+    WHEN nombre_completo IN (
+      'Dr. José Manuel Cárdenas',
+      'Dra. Patricia Gómez León',
+      'Dr. Ricardo Ibarra Vega'
+    ) THEN 'Medicina General'
+
+    WHEN nombre_completo IN (
+      'Dra. Daniela Torres Ruiz',
+      'Dr. Ernesto Valdez Mora'
+    ) THEN 'Cardiología'
+
+    WHEN nombre_completo IN (
+      'Dra. Karla Sánchez Soto',
+      'Dr. Hugo Medina Flores'
+    ) THEN 'Dermatología'
+
+    WHEN nombre_completo IN (
+      'Dra. Alejandra Castro Pérez',
+      'Dr. Luis Fernando Ramos'
+    ) THEN 'Pediatría'
+
+    ELSE 'Neurología'
+  END
+FROM public.usuarios
+WHERE rol = 'doctor';
+
+-- =====================================================
+-- RECEPCIONISTA
+-- =====================================================
+INSERT INTO public.recepcionistas (
+  id,
+  usuario_id,
+  sucursal_id
+)
+SELECT
+  gen_random_uuid(),
+  u.id,
+  s.id
+FROM public.usuarios u
+CROSS JOIN (
+  SELECT id
+  FROM public.sucursales
+  LIMIT 1
+) s
+WHERE u.rol = 'recepcionista';
+
+-- =====================================================
+-- EXPEDIENTES MÉDICOS
+-- =====================================================
+INSERT INTO public.expedientes_medicos (
+  id,
+  usuario_id,
+  numero_expediente,
+  fecha_apertura
+)
+SELECT
+  gen_random_uuid(),
+  id,
+  'EXP-' || UPPER(SUBSTRING(REPLACE(id::text,'-','') FROM 1 FOR 8)),
+  CURRENT_DATE
+FROM public.usuarios
+WHERE rol = 'paciente';
+
+-- =====================================================
+-- HORARIOS DOCTORES
+-- =====================================================
+INSERT INTO public.horarios_doctor (
+  id,
+  doctor_id,
+  sucursal_id,
+  dia_semana,
+  hora_inicio,
+  hora_fin
+)
+SELECT
+  gen_random_uuid(),
+  d.id,
+  s.id,
+  dia.dia,
+  '09:00',
+  '17:00'
+FROM public.doctores d
+CROSS JOIN public.sucursales s
+CROSS JOIN (
+  VALUES (1),(2),(3),(4),(5)
+) AS dia(dia);
+
+-- =====================================================
+-- BLOQUEOS
+-- =====================================================
+INSERT INTO public.bloqueos_doctor (
+  id,
+  doctor_id,
+  fecha,
+  hora_inicio,
+  hora_fin,
+  motivo
+)
+SELECT
+  gen_random_uuid(),
+  id,
+  '2026-05-22',
+  '13:00',
+  '15:00',
+  'Capacitación médica'
+FROM public.doctores
+LIMIT 3;
+
+-- =====================================================
+-- CITAS (FECHAS DESDE 20/05/2026)
+-- =====================================================
+INSERT INTO public.citas (
+  id,
+  usuario_id,
+  doctor_id,
+  sucursal_id,
+  fecha,
+  hora,
+  estado
+)
+SELECT
+  gen_random_uuid(),
+  p.id,
+  d.id,
+  s.id,
+  DATE '2026-05-20' + ((ROW_NUMBER() OVER())::int % 10),
+  (
+    '09:00'::time +
+    ((ROW_NUMBER() OVER()) * interval '30 minutes')
+  )::time,
+  CASE
+    WHEN (ROW_NUMBER() OVER()) % 5 = 0 THEN 'cancelada'
+    WHEN (ROW_NUMBER() OVER()) % 3 = 0 THEN 'completada'
+    ELSE 'programada'
+  END
+FROM (
+  SELECT id
+  FROM public.usuarios
+  WHERE rol = 'paciente'
+) p
+CROSS JOIN LATERAL (
+  SELECT id
+  FROM public.doctores
+  ORDER BY random()
+  LIMIT 1
+) d
+CROSS JOIN LATERAL (
+  SELECT id
+  FROM public.sucursales
+  ORDER BY random()
+  LIMIT 1
+) s
+LIMIT 20;
+
+-- =====================================================
+-- NOTAS MÉDICAS
+-- =====================================================
+INSERT INTO public.notas_medicas (
+  id,
+  expediente_id,
+  doctor_id,
+  fecha_hora,
+  motivo_consulta,
+  diagnostico,
+  tratamiento
+)
+SELECT
+  gen_random_uuid(),
+  e.id,
+  d.id,
+  NOW(),
+  CASE
+    WHEN random() < 0.25 THEN 'Dolor de cabeza'
+    WHEN random() < 0.50 THEN 'Fiebre'
+    WHEN random() < 0.75 THEN 'Chequeo general'
+    ELSE 'Dolor abdominal'
+  END,
+  CASE
+    WHEN random() < 0.25 THEN 'Migraña'
+    WHEN random() < 0.50 THEN 'Infección viral'
+    WHEN random() < 0.75 THEN 'Paciente estable'
+    ELSE 'Gastritis'
+  END,
+  CASE
+    WHEN random() < 0.25 THEN 'Paracetamol cada 8 horas'
+    WHEN random() < 0.50 THEN 'Reposo e hidratación'
+    WHEN random() < 0.75 THEN 'Continuar dieta balanceada'
+    ELSE 'Omeprazol por 14 días'
+  END
+FROM public.expedientes_medicos e
+CROSS JOIN LATERAL (
+  SELECT id
+  FROM public.doctores
+  ORDER BY random()
+  LIMIT 1
+) d
+LIMIT 20;
+
+-- =====================================================
+-- NOTIFICACIONES
+-- =====================================================
+INSERT INTO public.notifications (
+  id,
+  user_id,
+  title,
+  message,
+  type,
+  is_read
+)
+SELECT
+  gen_random_uuid(),
+  id,
+  'Bienvenido',
+  'Tu cuenta fue creada exitosamente.',
+  'info',
+  false
+FROM public.usuarios;

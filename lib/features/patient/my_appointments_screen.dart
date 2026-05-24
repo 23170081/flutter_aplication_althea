@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -25,7 +27,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   Future<void> _fetchAppointments() async {
     try {
       final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
+      final user = context.read<UserProvider>().user;
       if (user == null) throw Exception('No autenticado');
 
       final data = await supabase
@@ -189,11 +191,64 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       setState(() => _isLoading = true);
       try {
         final supabase = Supabase.instance.client;
+        final user = context.read<UserProvider>().user;
+        if (user == null) throw Exception('No autenticado');
+
+        // Obtener detalles de la cita
+        final citaData = await supabase
+            .from('citas')
+            .select('metodo_pago, referencia_pago')
+            .eq('id', appointment['id'])
+            .single();
+
+        final metodoPago = citaData['metodo_pago'] as String?;
+        final referenciaPago = citaData['referencia_pago'] as String?;
+
+        // Monto fijo del anticipo según casos de uso
+        const montoAnticipo = 500.0;
+
+        // Determinar estado del reembolso según las reglas de negocio
+        final estadoReembolso = isMoreThanOneDay ? 'pendiente' : 'no_aplicable';
+        final notas = isMoreThanOneDay
+            ? 'Reembolso pendiente de procesamiento'
+            : 'No aplica reembolso por cancelación con menos de 24 horas de anticipación';
+
+        // Actualizar la cita
         await supabase
             .from('citas')
-            .update({'estado': 'cancelada'})
+            .update({
+              'estado': 'cancelada',
+              'cancelada_por': user.id,
+              'fecha_cancelacion': DateTime.now().toIso8601String(),
+            })
             .eq('id', appointment['id']);
+
+        // Crear registro de reembolso
+        await supabase.from('reembolsos').insert({
+          'cita_id': appointment['id'],
+          'usuario_id': user.id,
+          'monto': montoAnticipo,
+          'estado': estadoReembolso,
+          'motivo_cancelacion': 'paciente',
+          'metodo_pago': metodoPago,
+          'referencia_pago': referenciaPago,
+          'notas': notas,
+        });
+
         _fetchAppointments();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isMoreThanOneDay
+                    ? 'Cita cancelada. Reembolso en proceso.'
+                    : 'Cita cancelada. No aplica reembolso.',
+              ),
+              backgroundColor: isMoreThanOneDay ? Colors.green : Colors.orange,
+            ),
+          );
+        }
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);

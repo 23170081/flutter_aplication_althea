@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dart:ui';
@@ -41,6 +43,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   bool _isLoadingData = true;
   List<String> _bookedTimes = [];
   bool _isLoadingTimes = false;
+  List<Map<String, dynamic>> _blockedDates = [];
+  final ScrollController _scrollController = ScrollController();
+  late DateTime _carruselStartDate;
 
   bool get _isCardNameValid => _cardName.trim().length >= 3;
 
@@ -77,29 +82,74 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _carruselStartDate = DateTime(now.year, now.month, now.day);
     _fetchDoctorSchedules();
+    _fetchBlockedDates();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchBlockedDates() async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final data = await supabase
+          .from('bloqueos_doctor')
+          .select('*')
+          .eq('doctor_id', widget.doctorId)
+          .gte('fecha', DateTime.now().toIso8601String().split('T')[0]);
+
+      if (mounted) {
+        setState(() {
+          _blockedDates = (data as List<dynamic>).cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      print('Error al cargar bloqueos: $e');
+    }
   }
 
   Future<void> _fetchDoctorSchedules() async {
     try {
       final supabase = Supabase.instance.client;
-      final data = await supabase
+      print('Buscando horarios para doctor_id: ${widget.doctorId}');
+      
+      // Cargar horarios sin relación
+      final horariosData = await supabase
           .from('horarios_doctor')
-          .select('''
-            id,
-            dia_semana,
-            hora_inicio,
-            hora_fin,
-            sucursales (
-              id,
-              nombre
-            )
-          ''')
+          .select('id, dia_semana, hora_inicio, hora_fin, sucursal_id')
           .eq('doctor_id', widget.doctorId);
 
-      final List<Map<String, dynamic>> fetchedHorarios =
-          List<Map<String, dynamic>>.from(data);
+      print('Horarios encontrados: ${horariosData.length}');
+      print('Datos: $horariosData');
 
+      // Cargar sucursales aparte
+      final sucursalesData = await supabase
+          .from('sucursales')
+          .select('id, nombre');
+
+      print('Sucursales encontradas: ${sucursalesData.length}');
+
+      // Mapear sucursales por ID
+      final sucursalMap = {
+        for (var s in sucursalesData)
+        s['id']: s
+      };
+
+      // Construir horarios enriquecidos con datos de sucursal
+      final fetchedHorarios =
+          List<Map<String, dynamic>>.from(horariosData);
+
+      for (var h in fetchedHorarios) {
+        h['sucursal_data'] = sucursalMap[h['sucursal_id']];
+      }
+
+      // Extraer sucursales únicas
       final Map<String, Map<String, dynamic>> uniqueBranches = {};
       for (var h in fetchedHorarios) {
         final sucursalesData = h['sucursales'];
@@ -129,6 +179,8 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         }
       }
 
+      print('Sucursales únicas: ${uniqueBranches.length}');
+
       if (mounted) {
         setState(() {
           _horarios = fetchedHorarios;
@@ -137,6 +189,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         });
       }
     } catch (e) {
+      print('Error al cargar horarios: $e');
       if (mounted) {
         setState(() {
           _isLoadingData = false;
@@ -199,7 +252,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   List<Map<String, dynamic>> get _currentBranchHorarios {
     if (_selectedBranch == null) return [];
     return _horarios
-        .where((h) => h['sucursales']['id'] == _selectedBranch!['id'])
+        .where((h) => h['sucursal_id'] == _selectedBranch!['id'])
         .toList();
   }
 
@@ -210,22 +263,33 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         .toList();
   }
 
-  List<DateTime> _generateNext8Dates() {
-    final validDays = _validSqlDays;
-    if (validDays.isEmpty) return [];
+  void _scrollToSelectedDay(DateTime selectedDay) {
+    if (!_scrollController.hasClients) return;
 
-    List<DateTime> dates = [];
-    DateTime current = DateTime.now();
-    current = DateTime(current.year, current.month, current.day);
+    final targetDate = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+    );
+    final difference = targetDate.difference(_carruselStartDate).inDays;
 
-    while (dates.length < 8) {
-      final sqlDay = current.weekday - 1;
-      if (validDays.contains(sqlDay)) {
-        dates.add(current);
-      }
-      current = current.add(const Duration(days: 1));
+    if (difference >= 0 && difference < 60) {
+      final viewportWidth = MediaQuery.of(context).size.width - 40;
+      final dayWidth = 82.0; // 70 width + 12 margin
+      final maxScroll = (60 * dayWidth) - viewportWidth;
+
+      final targetOffset =
+          ((difference * dayWidth) - (viewportWidth / 2) + 41.0).clamp(
+            0.0,
+            maxScroll > 0 ? maxScroll : 0.0,
+          );
+
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
     }
-    return dates;
   }
 
   List<String> get _times {
@@ -244,6 +308,12 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
     int startHour = int.parse(inicioParts[0]);
     int endHour = int.parse(finParts[0]);
 
+    // Get blocked time slots for the selected date
+    final dateString = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+    final blockedTimeRanges = _blockedDates
+        .where((block) => block['fecha'] == dateString && block['hora_inicio'] != null)
+        .toList();
+
     List<String> slots = [];
     final now = DateTime.now();
     final isToday =
@@ -255,9 +325,30 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       if (isToday && h <= now.hour) {
         continue; // Omitir horas que ya pasaron
       }
+
+      // Check if this hour is blocked by doctor
+      bool isBlocked = false;
+      for (final block in blockedTimeRanges) {
+        final blockStart = int.parse(block['hora_inicio'].toString().split(':')[0]);
+        final blockEnd = int.parse(block['hora_fin'].toString().split(':')[0]);
+        if (h >= blockStart && h < blockEnd) {
+          isBlocked = true;
+          break;
+        }
+      }
+
+      if (isBlocked) continue;
+
+      // Check if this hour is already booked by another patient
       int displayHour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
       String amPm = h >= 12 ? 'PM' : 'AM';
-      slots.add('$displayHour:00 $amPm');
+      final timeSlot = '$displayHour:00 $amPm';
+      
+      if (_bookedTimes.contains(timeSlot)) {
+        continue; // Skip already booked time slots
+      }
+
+      slots.add(timeSlot);
     }
     return slots;
   }
@@ -274,7 +365,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
+      final user = context.read<UserProvider>().user;
       if (user == null) throw Exception('No estás autenticado.');
 
       // 1. Formatear la hora (de "2:00 PM" a "14:00:00")
@@ -288,7 +379,48 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       // 2. Formatear la fecha
       final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate!);
 
-      // 3. Insertar cita en Supabase
+      // 3. Verificación extra: Verificar si el horario fue bloqueado por el doctor
+      final blocks = await supabase
+          .from('bloqueos_doctor')
+          .select('*')
+          .eq('doctor_id', widget.doctorId)
+          .eq('fecha', dateFormatted);
+
+      for (final block in blocks) {
+        final horaInicio = block['hora_inicio'] as String?;
+        final horaFin = block['hora_fin'] as String?;
+
+        if (horaInicio == null && horaFin == null) {
+          // Bloqueo de todo el día
+          throw Exception('El doctor ha bloqueado esta fecha. Por favor selecciona otra fecha.');
+        }
+
+        if (horaInicio != null && horaFin != null) {
+          // Verificar si la hora está dentro del rango bloqueado
+          final blockStartHour = int.parse(horaInicio.split(':')[0]);
+          final blockEndHour = int.parse(horaFin.split(':')[0]);
+          
+          if (hour >= blockStartHour && hour < blockEndHour) {
+            throw Exception('El doctor ha bloqueado este horario. Por favor selecciona otro horario.');
+          }
+        }
+      }
+
+      // 4. Verificación extra: Verificar si el horario ya fue reservado por otro paciente
+      final existingAppointments = await supabase
+          .from('citas')
+          .select('id')
+          .eq('doctor_id', widget.doctorId)
+          .eq('sucursal_id', _selectedBranch!['id'])
+          .eq('fecha', dateFormatted)
+          .eq('hora', timeFormatted)
+          .neq('estado', 'cancelada');
+
+      if (existingAppointments.isNotEmpty) {
+        throw Exception('Este horario ya fue reservado por otro paciente. Por favor selecciona otro horario.');
+      }
+
+      // 5. Insertar cita en Supabase
       await supabase.from('citas').insert({
         'usuario_id': user.id,
         'doctor_id': widget.doctorId,
@@ -296,6 +428,8 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         'fecha': dateFormatted,
         'hora': timeFormatted,
         'estado': 'programada',
+        'metodo_pago': _paymentMethod,
+        'referencia_pago': _cardNumber.replaceAll(RegExp(r'\D'), ''),
       });
 
       if (!mounted) return;
@@ -454,7 +588,44 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Branch Selection
-                  if (_sucursales.isNotEmpty) ...[
+                  if (_sucursales.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AltheaColors.borderLight),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.event_busy_rounded,
+                            size: 48,
+                            color: AltheaColors.textSecondary.withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No hay horarios disponibles',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AltheaColors.navy,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Este doctor aún no ha configurado sus horarios de atención. Por favor contacta a la recepción para más información.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AltheaColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Branch Selection
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -602,118 +773,132 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(context).copyWith(
-                              dragDevices: {
-                                PointerDeviceKind.touch,
-                                PointerDeviceKind.mouse,
-                              },
-                            ),
-                            child: SingleChildScrollView(
+                          SizedBox(
+                            height: 105,
+                            child: ListView.builder(
+                              controller: _scrollController,
                               scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              ),
-                              child: Row(
-                                children: _generateNext8Dates().map((date) {
-                                  final isSelected =
-                                      _selectedDate?.day == date.day &&
-                                      _selectedDate?.month == date.month &&
-                                      _selectedDate?.year == date.year;
-                                  final monthStr = DateFormat(
-                                    'MMM',
-                                    'es_MX',
-                                  ).format(date).toUpperCase();
-                                  final dayStr = DateFormat(
-                                    'EEE',
-                                    'es_MX',
-                                  ).format(date).replaceAll('.', '');
+                              itemCount: 60,
+                              itemBuilder: (context, index) {
+                                final date = _carruselStartDate.add(Duration(days: index));
+                                final dateStr =
+                                    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedDate = date;
-                                          _selectedTime = null;
-                                        });
-                                        _fetchBookedTimesForDate();
-                                      },
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          gradient: isSelected
-                                              ? const LinearGradient(
-                                                  colors: [
-                                                    AltheaColors.gold,
-                                                    AltheaColors.goldLight,
-                                                  ],
-                                                )
-                                              : null,
-                                          color: isSelected
-                                              ? null
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? Colors.transparent
-                                                : AltheaColors.borderLight,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              monthStr,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                                color: isSelected
-                                                    ? Colors.white.withOpacity(
-                                                        0.8,
-                                                      )
-                                                    : AltheaColors
-                                                          .textSecondary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${date.day}',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.w900,
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : AltheaColors.navy,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              dayStr,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: isSelected
-                                                    ? Colors.white.withOpacity(
-                                                        0.9,
-                                                      )
-                                                    : AltheaColors.navy,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                final isSelected =
+                                    date.year == _selectedDate?.year &&
+                                    date.month == _selectedDate?.month &&
+                                    date.day == _selectedDate?.day;
+
+                                final validDays = _validSqlDays;
+                                final isWorkingDay = validDays.isEmpty || validDays.contains(date.weekday - 1);
+                                
+                                // Get blocked date strings for easy comparison
+                                final blockedDateStrings = _blockedDates
+                                    .map((block) => block['fecha'] as String)
+                                    .toSet();
+                                final isBlocked = blockedDateStrings.contains(dateStr);
+
+                                // Check if date is in the past
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                final isPast = date.isBefore(today);
+
+                                // Disable if past, not a working day, or blocked
+                                final isEnabled = !isPast && isWorkingDay && !isBlocked;
+
+                                final dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                                final dayName = dayNames[date.weekday - 1];
+                                final monthStr = DateFormat('MMM', 'es_MX').format(date).toUpperCase();
+
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (isEnabled) {
+                                      setState(() {
+                                        _selectedDate = date;
+                                        _selectedTime = null;
+
+                                        // Update carousel if selected date is out of range
+                                        final diff = date.difference(_carruselStartDate).inDays;
+                                        if (diff < 0 || diff >= 60) {
+                                          _carruselStartDate = DateTime(
+                                            date.year,
+                                            date.month,
+                                            date.day,
+                                          );
+                                        }
+                                      });
+                                      _fetchBookedTimesForDate();
+                                      _scrollToSelectedDay(date);
+                                    }
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 70,
+                                    margin: const EdgeInsets.only(right: 12, bottom: 8, top: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AltheaColors.gold : Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AltheaColors.gold
+                                            : (isEnabled ? AltheaColors.borderLight : Colors.grey.shade300),
                                       ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: AltheaColors.gold.withValues(alpha: 0.3),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ]
+                                          : [],
                                     ),
-                                  );
-                                }).toList(),
-                              ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          dayName,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected
+                                                ? Colors.white.withValues(alpha: 0.9)
+                                                : (isEnabled
+                                                      ? AltheaColors.textSecondary
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '${date.day}',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : (isEnabled
+                                                      ? AltheaColors.navy
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          monthStr,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected
+                                                ? Colors.white.withValues(alpha: 0.9)
+                                                : (isEnabled
+                                                      ? AltheaColors.textSecondary
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -750,17 +935,34 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 initialDate: initial,
                                 firstDate: today,
                                 lastDate: today.add(const Duration(days: 90)),
+                                locale: const Locale('es', 'ES'),
                                 selectableDayPredicate: (DateTime val) {
                                   final sqlDay = val.weekday - 1;
-                                  return validDays.contains(sqlDay);
+                                  if (!validDays.contains(sqlDay)) return false;
+
+                                  // Check if date is blocked by doctor
+                                  final dateString = '${val.year}-${val.month.toString().padLeft(2, '0')}-${val.day.toString().padLeft(2, '0')}';
+                                  final isBlocked = _blockedDates.any((block) => block['fecha'] == dateString);
+                                  return !isBlocked;
                                 },
                               );
                               if (d != null) {
                                 setState(() {
                                   _selectedDate = d;
                                   _selectedTime = null;
+
+                                  // Update carousel if selected date is out of range
+                                  final diff = d.difference(_carruselStartDate).inDays;
+                                  if (diff < 0 || diff >= 60) {
+                                    _carruselStartDate = DateTime(
+                                      d.year,
+                                      d.month,
+                                      d.day,
+                                    );
+                                  }
                                 });
                                 _fetchBookedTimesForDate();
+                                _scrollToSelectedDay(d);
                               }
                             },
                             child: Container(
@@ -866,10 +1068,9 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 spacing: 12,
                                 runSpacing: 12,
                                 children: _times.map((time) {
-                                  final isBooked = _bookedTimes.contains(time);
                                   final isSelected = _selectedTime == time;
                                   return GestureDetector(
-                                    onTap: (_selectedDate != null && !isBooked)
+                                    onTap: (_selectedDate != null)
                                         ? () => setState(
                                             () => _selectedTime = time,
                                           )
@@ -883,30 +1084,23 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                         vertical: 12,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: isBooked
-                                            ? AltheaColors.lightBg
-                                            : (isSelected
-                                                  ? AltheaColors.navy
-                                                  : Colors.white),
+                                        color: isSelected
+                                            ? AltheaColors.navy
+                                            : Colors.white,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isBooked
-                                              ? AltheaColors.borderLight
-                                              : (isSelected
-                                                    ? AltheaColors.navy
-                                                    : AltheaColors.borderLight),
+                                          color: isSelected
+                                              ? AltheaColors.navy
+                                              : AltheaColors.borderLight,
                                         ),
                                       ),
                                       child: Text(
                                         time,
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          color: isBooked
-                                              ? AltheaColors.textSecondary
-                                                    .withOpacity(0.5)
-                                              : (isSelected
-                                                    ? Colors.white
-                                                    : AltheaColors.navy),
+                                          color: isSelected
+                                              ? Colors.white
+                                              : AltheaColors.navy,
                                         ),
                                       ),
                                     ),
