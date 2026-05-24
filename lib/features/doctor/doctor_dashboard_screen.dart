@@ -241,6 +241,76 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     }
   }
 
+  Future<void> _completeAppointment(Map<String, dynamic> appointment) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Completar Cita',
+          style: TextStyle(
+            color: AltheaColors.navy,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          '¿Estás seguro de marcar esta cita como completada? Esto indicará que la consulta ha finalizado.',
+          style: TextStyle(color: AltheaColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'No, Mantener',
+              style: TextStyle(
+                color: AltheaColors.navy,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AltheaColors.navy,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Sí, Completar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase
+            .from('citas')
+            .update({'estado': 'terminada'})
+            .eq('id', appointment['id']);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cita completada exitosamente.')),
+          );
+          _fetchStats();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error al completar: $e')));
+        }
+      }
+    }
+  }
+
   void _showAppointmentDetails(Map<String, dynamic> appointment) {
     final isCompleted = appointment['isCompleted'] == true;
     showModalBottomSheet(
@@ -332,6 +402,25 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
               ),
 
               if (!isCompleted) ...[
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _completeAppointment(appointment);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AltheaColors.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Marcar como Completada',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {
