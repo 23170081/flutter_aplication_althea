@@ -436,6 +436,8 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         'fecha': dateFormatted,
         'hora': timeFormatted,
         'estado': 'programada',
+        'metodo_pago': _paymentMethod,
+        'referencia_pago': _cardNumber.replaceAll(RegExp(r'\D'), ''),
       });
 
       if (!mounted) return;

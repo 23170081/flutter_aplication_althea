@@ -133,7 +133,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       },
                       onSettings: () => context.go('/patient/profile'),
                     ),
-                    const SizedBox(height: 150),
+                    const SizedBox(height: 250),
                   ],
                 ),
                 Positioned(
@@ -141,17 +141,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   left: 20,
                   right: 20,
                   child: _QuickActionsCard(
-                    actions: [
-                      _QuickAction(
-                        icon: Icons.add_rounded,
-                        label: 'Agendar Cita',
-                        primary: true,
-                        onTap: () => context.go('/patient/doctors'),
-                      ),
+                    primaryAction: _QuickAction(
+                      icon: Icons.add_rounded,
+                      label: 'Agendar Cita',
+                      primary: true,
+                      onTap: () => context.go('/patient/doctors'),
+                    ),
+                    secondaryActions: [
                       _QuickAction(
                         icon: Icons.calendar_today_outlined,
                         label: 'Mis Citas',
                         onTap: () => context.go('/patient/appointments'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'Reembolsos',
+                        onTap: () => context.go('/patient/refunds'),
                       ),
                       _QuickAction(
                         icon: Icons.person_outline_rounded,
@@ -217,8 +222,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 // ─── Quick Actions Card ──────────────────────────────────────
 
 class _QuickActionsCard extends StatelessWidget {
-  final List<_QuickAction> actions;
-  const _QuickActionsCard({required this.actions});
+  final _QuickAction primaryAction;
+  final List<_QuickAction> secondaryActions;
+  const _QuickActionsCard({
+    required this.primaryAction,
+    required this.secondaryActions,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -236,8 +245,16 @@ class _QuickActionsCard extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(16),
-      child: Row(
-        children: actions.map((a) => Expanded(child: _buildBtn(a))).toList(),
+      child: Column(
+        children: [
+          // 3 botones pequeños arriba
+          Row(
+            children: secondaryActions.map((a) => Expanded(child: _buildBtn(a))).toList(),
+          ),
+          const SizedBox(height: 12),
+          // Botón extendido abajo
+          _QuickActionButton(action: primaryAction, isExtended: true),
+        ],
       ),
     );
   }
@@ -266,7 +283,8 @@ class _QuickAction {
 
 class _QuickActionButton extends StatefulWidget {
   final _QuickAction action;
-  const _QuickActionButton({required this.action});
+  final bool isExtended;
+  const _QuickActionButton({required this.action, this.isExtended = false});
   @override
   State<_QuickActionButton> createState() => _QuickActionButtonState();
 }
@@ -276,6 +294,7 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
   @override
   Widget build(BuildContext context) {
     final a = widget.action;
+    final isExtended = widget.isExtended;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -287,7 +306,9 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
         scale: _pressed ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          padding: isExtended
+              ? const EdgeInsets.symmetric(vertical: 16, horizontal: 20)
+              : const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
           decoration: BoxDecoration(
             gradient: a.primary
                 ? const LinearGradient(
@@ -314,36 +335,63 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
                     ),
                   ],
           ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: a.primary
-                      ? Colors.white.withOpacity(0.2)
-                      : AltheaColors.lightCard,
-                  borderRadius: BorderRadius.circular(12),
+          child: isExtended
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        a.icon,
+                        color: AltheaColors.navy,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      a.label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AltheaColors.navy,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: a.primary
+                            ? Colors.white.withOpacity(0.2)
+                            : AltheaColors.lightCard,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        a.icon,
+                        color: a.primary ? AltheaColors.navy : AltheaColors.navy,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      a.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: a.primary
+                            ? AltheaColors.navy
+                            : AltheaColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(
-                  a.icon,
-                  color: a.primary ? AltheaColors.navy : AltheaColors.navy,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                a.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: a.primary
-                      ? AltheaColors.navy
-                      : AltheaColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
