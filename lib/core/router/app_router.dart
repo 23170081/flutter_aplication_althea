@@ -17,6 +17,7 @@ import 'package:flutter_application_althea/features/doctor/doctor_schedule_confi
 import 'package:flutter_application_althea/features/doctor/medical_record_screen.dart';
 import 'package:flutter_application_althea/features/receptionist/receptionist_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/receptionist/search_patient_screen.dart';
+import 'package:flutter_application_althea/features/receptionist/register_pacient_recepcionist.dart';
 import 'package:flutter_application_althea/features/receptionist/book_for_patient_screen.dart';
 import 'package:flutter_application_althea/features/admin/admin_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/admin/branch_management_screen.dart';
@@ -110,6 +111,10 @@ GoRouter createRouter(BuildContext context) {
         builder: (_, state) => BookForPatientScreen(
           patientId: state.uri.queryParameters['patientId'],
         ),
+      ),
+      GoRoute(
+        path: '/receptionist/register-patient',
+        builder: (_, __) => const ReceptionistRegisterPatientScreen(),
       ),
 
       // Admin

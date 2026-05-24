@@ -55,9 +55,8 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
           .select('id, nombre_completo, telefono')
           .eq('rol', 'paciente');
       final doctorsData = await supabase
-          .from('usuarios')
-          .select('id, nombre_completo, doctores(especialidad)')
-          .eq('rol', 'doctor');
+          .from('doctores')
+          .select('id, especialidad, usuarios(id, nombre_completo)');
 
       final parsedPatients = List<Map<String, dynamic>>.from(patientsData).map((p) => {
         'id': p['id'].toString(),
@@ -65,23 +64,30 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
         'phone': p['telefono'] ?? '',
       }).toList();
 
-      final parsedDoctors = List<Map<String, dynamic>>.from(doctorsData).map((d) {
-        String specialty = 'General';
-        final doctoresMap = d['doctores'];
-        if (doctoresMap != null) {
-          if (doctoresMap is List && doctoresMap.isNotEmpty) {
-            specialty = doctoresMap[0]['especialidad']?.toString() ?? 'General';
-          } else if (doctoresMap is Map) {
-            specialty = doctoresMap['especialidad']?.toString() ?? 'General';
+      final parsedDoctors = <Map<String, dynamic>>[];
+      for (var d in List<Map<String, dynamic>>.from(doctorsData)) {
+        String specialty = d['especialidad']?.toString() ?? 'General';
+        String doctorId = d['id']?.toString() ?? '';
+        String doctorName = 'Doctor';
+
+        final usuariosData = d['usuarios'];
+        if (usuariosData != null) {
+          if (usuariosData is List && usuariosData.isNotEmpty) {
+            doctorName = usuariosData[0]['nombre_completo']?.toString() ?? doctorName;
+          } else if (usuariosData is Map) {
+            doctorName = usuariosData['nombre_completo']?.toString() ?? doctorName;
           }
         }
-        return {
-          'id': d['id'].toString(),
-          'name': d['nombre_completo'] ?? 'Doctor',
-          'specialty': specialty,
-          'display': '${d['nombre_completo']} - $specialty'
-        };
-      }).toList();
+
+        if (doctorId.isNotEmpty) {
+          parsedDoctors.add({
+            'id': doctorId,
+            'name': doctorName,
+            'specialty': specialty,
+            'display': '$doctorName - $specialty',
+          });
+        }
+      };
 
       if (mounted) {
         setState(() {
@@ -126,12 +132,31 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
       final List<Map<String, dynamic>> fetchedHorarios =
           List<Map<String, dynamic>>.from(data);
       final Map<String, Map<String, dynamic>> uniqueBranches = {};
+
       for (var h in fetchedHorarios) {
-        final sucursal = h['sucursales'];
-        if (sucursal != null) {
-          uniqueBranches[sucursal['id']] = {
-            'id': sucursal['id'],
-            'nombre': sucursal['nombre'],
+        final sucursalesData = h['sucursales'];
+        if (sucursalesData != null) {
+          if (sucursalesData is List) {
+            for (var suc in sucursalesData) {
+              if (suc != null && suc['id'] != null) {
+                uniqueBranches[suc['id'].toString()] = {
+                  'id': suc['id'],
+                  'nombre': suc['nombre'] ?? 'Sucursal',
+                };
+              }
+            }
+          } else if (sucursalesData is Map) {
+            if (sucursalesData['id'] != null) {
+              uniqueBranches[sucursalesData['id'].toString()] = {
+                'id': sucursalesData['id'],
+                'nombre': sucursalesData['nombre'] ?? 'Sucursal',
+              };
+            }
+          }
+        } else if (h['sucursal_id'] != null) {
+          uniqueBranches[h['sucursal_id'].toString()] = {
+            'id': h['sucursal_id'],
+            'nombre': 'Sucursal ${h['sucursal_id']}',
           };
         }
       }
@@ -206,9 +231,17 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
 
   List<Map<String, dynamic>> get _currentBranchHorarios {
     if (_selectedBranch == null) return [];
-    return _horariosDoctor
-        .where((h) => h['sucursales']['id'] == _selectedBranch!['id'])
-        .toList();
+    final branchId = _selectedBranch!['id'];
+    return _horariosDoctor.where((h) {
+      final sucursalesData = h['sucursales'];
+      if (sucursalesData is Map && sucursalesData['id'] == branchId) {
+        return true;
+      }
+      if (sucursalesData is List) {
+        return sucursalesData.any((suc) => suc != null && suc['id'] == branchId);
+      }
+      return h['sucursal_id'] == branchId;
+    }).toList();
   }
 
   List<int> get _validSqlDays {

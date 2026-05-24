@@ -51,6 +51,8 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
           }
         }
 
+        if (doctorId.isEmpty) continue;
+
         fetchedSpecialties.add(specialty);
 
         fetchedDoctors.add({

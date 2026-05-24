@@ -152,12 +152,29 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       // Extraer sucursales únicas
       final Map<String, Map<String, dynamic>> uniqueBranches = {};
       for (var h in fetchedHorarios) {
-        final sucursalId = h['sucursal_id'];
-        final sucursalData = h['sucursal_data'];
-        if (sucursalId != null) {
-          uniqueBranches[sucursalId] = {
-            'id': sucursalId,
-            'nombre': sucursalData?['nombre'] ?? 'Sucursal',
+        final sucursalesData = h['sucursales'];
+        if (sucursalesData != null) {
+          if (sucursalesData is List) {
+            for (var suc in sucursalesData) {
+              if (suc != null && suc['id'] != null) {
+                uniqueBranches[suc['id'].toString()] = {
+                  'id': suc['id'],
+                  'nombre': suc['nombre'] ?? 'Sucursal',
+                };
+              }
+            }
+          } else if (sucursalesData is Map) {
+            if (sucursalesData['id'] != null) {
+              uniqueBranches[sucursalesData['id'].toString()] = {
+                'id': sucursalesData['id'],
+                'nombre': sucursalesData['nombre'] ?? 'Sucursal',
+              };
+            }
+          }
+        } else if (h['sucursal_id'] != null) {
+          uniqueBranches[h['sucursal_id'].toString()] = {
+            'id': h['sucursal_id'],
+            'nombre': 'Sucursal ${h['sucursal_id']}',
           };
         }
       }
