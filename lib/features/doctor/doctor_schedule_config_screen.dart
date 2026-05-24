@@ -18,19 +18,23 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
   bool _isLoading = true;
   bool _isSaving = false;
   String? _doctorId;
-  
-  // Horarios por día de semana (0=Lunes, 6=Domingo)
-  final Map<int, ScheduleConfig> _schedules = {
-    0: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    1: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    2: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    3: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    4: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    5: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-    6: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00', sucursalId: null),
-  };
+  String? _selectedSucursalId;
+
+  final Map<String, Map<int, ScheduleConfig>> _branchSchedules = {};
 
   List<Map<String, dynamic>> _sucursales = [];
+
+  Map<int, ScheduleConfig> _createEmptySchedule() {
+    return {
+      0: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      1: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      2: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      3: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      4: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      5: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+      6: ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00'),
+    };
+  }
 
   final List<String> _dayNames = [
     'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'
@@ -67,8 +71,14 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
       final sucursalesData = await supabase
           .from('sucursales')
           .select('id, nombre');
-      
       _sucursales = List<Map<String, dynamic>>.from(sucursalesData);
+
+      for (var sucursal in _sucursales) {
+        final sucursalId = sucursal['id'] as String?;
+        if (sucursalId != null) {
+          _branchSchedules.putIfAbsent(sucursalId, () => _createEmptySchedule());
+        }
+      }
 
       // Obtener horarios existentes
       final horariosData = await supabase
@@ -78,14 +88,27 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
 
       for (var h in horariosData) {
         final dia = h['dia_semana'] as int;
-        if (_schedules.containsKey(dia)) {
-          _schedules[dia] = ScheduleConfig(
+        final sucursalId = h['sucursal_id'] as String?;
+        if (sucursalId == null) continue;
+        _branchSchedules.putIfAbsent(sucursalId, () => _createEmptySchedule());
+        if (_branchSchedules[sucursalId]!.containsKey(dia)) {
+          _branchSchedules[sucursalId]![dia] = ScheduleConfig(
             enabled: true,
             startTime: h['hora_inicio'].toString().substring(0, 5),
             endTime: h['hora_fin'].toString().substring(0, 5),
-            sucursalId: h['sucursal_id'] as String?,
+            sucursalId: sucursalId,
           );
         }
+      }
+
+      if (_selectedSucursalId == null && _sucursales.isNotEmpty) {
+        _selectedSucursalId = _branchSchedules.keys.isNotEmpty
+            ? _branchSchedules.keys.first
+            : _sucursales.first['id'] as String?;
+      }
+
+      if (_selectedSucursalId != null && !_branchSchedules.containsKey(_selectedSucursalId!)) {
+        _branchSchedules[_selectedSucursalId!] = _createEmptySchedule();
       }
 
       if (mounted) setState(() => _isLoading = false);
@@ -99,27 +122,82 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
     }
   }
 
+  Future<bool> _hasOverlapWithOtherBranches(String sucursalId) async {
+    final selectedSchedule = _branchSchedules[sucursalId]!;
+    for (var otherEntry in _branchSchedules.entries) {
+      if (otherEntry.key == sucursalId) continue;
+      final otherSchedule = otherEntry.value;
+      for (var day = 0; day <= 6; day++) {
+        final selected = selectedSchedule[day]!;
+        final other = otherSchedule[day]!;
+        if (!selected.enabled || !other.enabled) continue;
+        final selectedStart = _parseTime(selected.startTime);
+        final selectedEnd = _parseTime(selected.endTime);
+        final otherStart = _parseTime(other.startTime);
+        final otherEnd = _parseTime(other.endTime);
+        if (selectedStart.isBefore(otherEnd) && otherStart.isBefore(selectedEnd)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  TimeOfDay _parseTime(String value) {
+    final parts = value.split(':').map(int.parse).toList();
+    return TimeOfDay(hour: parts[0], minute: parts[1]);
+  }
+
   Future<void> _saveSchedules() async {
-    if (_doctorId == null) return;
+    if (_doctorId == null || _selectedSucursalId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecciona una sucursal antes de guardar.')),
+        );
+      }
+      return;
+    }
+
+    final selectedSchedules = _branchSchedules[_selectedSucursalId!]!;
+
+    for (var entry in selectedSchedules.entries) {
+      if (!entry.value.enabled) continue;
+      if (_parseTime(entry.value.startTime).compareTo(_parseTime(entry.value.endTime)) >= 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('El horario del día ${_dayNames[entry.key]} debe tener inicio antes de fin.')),
+          );
+        }
+        return;
+      }
+    }
+
+    if (await _hasOverlapWithOtherBranches(_selectedSucursalId!)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El horario seleccionado se solapa con otra sucursal. Ajusta los horarios.')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isSaving = true);
 
     try {
       final supabase = Supabase.instance.client;
 
-      // Eliminar horarios existentes
       await supabase
           .from('horarios_doctor')
           .delete()
-          .eq('doctor_id', _doctorId!);
+          .eq('doctor_id', _doctorId!)
+          .eq('sucursal_id', _selectedSucursalId!);
 
-      // Insertar nuevos horarios
       final horariosToInsert = <Map<String, dynamic>>[];
-      for (var entry in _schedules.entries) {
-        if (entry.value.enabled && entry.value.sucursalId != null) {
+      for (var entry in selectedSchedules.entries) {
+        if (entry.value.enabled) {
           horariosToInsert.add({
             'doctor_id': _doctorId!,
-            'sucursal_id': entry.value.sucursalId!,
+            'sucursal_id': _selectedSucursalId!,
             'dia_semana': entry.key,
             'hora_inicio': '${entry.value.startTime}:00',
             'hora_fin': '${entry.value.endTime}:00',
@@ -149,10 +227,13 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
   }
 
   Future<void> _selectTime(int day, bool isStartTime) async {
-    final currentTime = isStartTime 
-        ? _schedules[day]!.startTime 
-        : _schedules[day]!.endTime;
-    
+    final branchId = _selectedSucursalId;
+    if (branchId == null) return;
+
+    final currentTime = isStartTime
+        ? _branchSchedules[branchId]![day]!.startTime
+        : _branchSchedules[branchId]![day]!.endTime;
+
     final parts = currentTime.split(':');
     final initialTime = TimeOfDay(
       hour: int.parse(parts[0]),
@@ -173,10 +254,12 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
     if (picked != null && mounted) {
       setState(() {
         final timeStr = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-        if (isStartTime) {
-          _schedules[day] = _schedules[day]!.copyWith(startTime: timeStr);
-        } else {
-          _schedules[day] = _schedules[day]!.copyWith(endTime: timeStr);
+        if (_selectedSucursalId != null) {
+          final branchId = _selectedSucursalId!;
+          final current = _branchSchedules[branchId]![day]!;
+          _branchSchedules[branchId]![day] = isStartTime
+              ? current.copyWith(startTime: timeStr)
+              : current.copyWith(endTime: timeStr);
         }
       });
     }
@@ -215,10 +298,60 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AltheaColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Sucursal',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AltheaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: _selectedSucursalId,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          items: _sucursales.map((sucursal) {
+                            return DropdownMenuItem<String>(
+                              value: sucursal['id'] as String?,
+                              child: Text(sucursal['nombre'] ?? 'Sucursal'),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedSucursalId = value;
+                              _branchSchedules.putIfAbsent(value, () => _createEmptySchedule());
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   // Schedule cards
                   ...List.generate(7, (index) {
                     final day = index;
-                    final config = _schedules[day]!;
+                    final branchId = _selectedSucursalId;
+                    final config = branchId != null
+                        ? _branchSchedules[branchId]![day]!
+                        : ScheduleConfig(enabled: false, startTime: '09:00', endTime: '17:00');
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Container(
@@ -240,7 +373,10 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
                                   value: config.enabled,
                                   onChanged: (value) {
                                     setState(() {
-                                      _schedules[day] = config.copyWith(enabled: value);
+                                      if (_selectedSucursalId != null) {
+                                        _branchSchedules[_selectedSucursalId!]![day] =
+                                            config.copyWith(enabled: value);
+                                      }
                                     });
                                   },
                                   activeColor: AltheaColors.navy,
@@ -262,50 +398,12 @@ class _DoctorScheduleConfigScreenState extends State<DoctorScheduleConfigScreen>
                             ),
                             if (config.enabled) ...[
                               const SizedBox(height: 16),
-                              // Sucursal selector per day
-                              if (_sucursales.isNotEmpty) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: AltheaColors.lightBg,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AltheaColors.borderLight),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Sucursal',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: AltheaColors.textSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      DropdownButtonFormField<String>(
-                                        value: config.sucursalId,
-                                        decoration: InputDecoration(
-                                          filled: true,
-                                          fillColor: Colors.white,
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                            borderSide: BorderSide.none,
-                                          ),
-                                        ),
-                                        items: _sucursales.map((sucursal) {
-                                          return DropdownMenuItem<String>(
-                                            value: sucursal['id'],
-                                            child: Text(sucursal['nombre']),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _schedules[day] = config.copyWith(sucursalId: value);
-                                          });
-                                        },
-                                      ),
-                                    ],
+                              if (_selectedSucursalId == null) ...[
+                                const Text(
+                                  'Selecciona una sucursal para configurar los horarios.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AltheaColors.textSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 16),

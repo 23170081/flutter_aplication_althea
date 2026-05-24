@@ -216,7 +216,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 controller: emailCtrl, 
                 decoration: const InputDecoration(labelText: 'Correo'),
                 keyboardType: TextInputType.emailAddress,
-                enabled: false,
                 validator: (v) {
                   if (v != null && v.isNotEmpty) {
                     final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
