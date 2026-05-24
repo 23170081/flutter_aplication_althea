@@ -29,30 +29,33 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
   Future<void> _fetchDoctors() async {
     try {
       final response = await Supabase.instance.client
-          .from('usuarios')
-          .select('id, nombre_completo, doctores(especialidad)')
-          .eq('rol', 'doctor');
+          .from('doctores')
+          .select('id, especialidad, usuarios(id, nombre_completo)');
 
       final List<Map<String, String>> fetchedDoctors = [];
       final Set<String> fetchedSpecialties = {'Todos'};
 
-      for (var user in response) {
-        final doctoresData = user['doctores'];
-        String specialty = 'General';
-        
-        if (doctoresData != null) {
-          if (doctoresData is List && doctoresData.isNotEmpty) {
-            specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
-          } else if (doctoresData is Map) {
-            specialty = doctoresData['especialidad']?.toString() ?? 'General';
+      for (var doctor in response) {
+        final doctorId = doctor['id']?.toString() ?? '';
+        String specialty = doctor['especialidad']?.toString() ?? 'General';
+        String doctorName = 'Doctor';
+
+        final usuariosData = doctor['usuarios'];
+        if (usuariosData != null) {
+          if (usuariosData is List && usuariosData.isNotEmpty) {
+            doctorName = usuariosData[0]['nombre_completo']?.toString() ?? doctorName;
+          } else if (usuariosData is Map) {
+            doctorName = usuariosData['nombre_completo']?.toString() ?? doctorName;
           }
         }
+
+        if (doctorId.isEmpty) continue;
 
         fetchedSpecialties.add(specialty);
 
         fetchedDoctors.add({
-          'id': user['id'].toString(),
-          'name': user['nombre_completo']?.toString() ?? 'Doctor',
+          'id': doctorId,
+          'name': doctorName,
           'specialty': specialty,
           'rating': '5.0', // Dato simulado
           'reviews': '0',  // Dato simulado
