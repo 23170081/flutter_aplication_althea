@@ -83,7 +83,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _carruselStartDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 15));
+    _carruselStartDate = DateTime(now.year, now.month, now.day);
     _fetchDoctorSchedules();
     _fetchBlockedDates();
   }
@@ -273,31 +273,6 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
         curve: Curves.easeOutCubic,
       );
     }
-  }
-
-  List<DateTime> _generateNext8Dates() {
-    final validDays = _validSqlDays;
-    if (validDays.isEmpty) return [];
-
-    List<DateTime> dates = [];
-    DateTime current = _carruselStartDate;
-
-    // Get blocked date strings for easy comparison
-    final blockedDateStrings = _blockedDates
-        .map((block) => block['fecha'] as String)
-        .toSet();
-
-    // Generate 60 days like doctor schedule screen
-    for (int i = 0; i < 60; i++) {
-      final sqlDay = current.weekday - 1;
-      final dateString = '${current.year}-${current.month.toString().padLeft(2, '0')}-${current.day.toString().padLeft(2, '0')}';
-      
-      if (validDays.contains(sqlDay) && !blockedDateStrings.contains(dateString)) {
-        dates.add(current);
-      }
-      current = current.add(const Duration(days: 1));
-    }
-    return dates;
   }
 
   List<String> get _times {
@@ -781,130 +756,132 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(context).copyWith(
-                              dragDevices: {
-                                PointerDeviceKind.touch,
-                                PointerDeviceKind.mouse,
-                              },
-                            ),
-                            child: SingleChildScrollView(
+                          SizedBox(
+                            height: 105,
+                            child: ListView.builder(
                               controller: _scrollController,
                               scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              ),
-                              child: Row(
-                                children: _generateNext8Dates().map((date) {
-                                  final isSelected =
-                                      _selectedDate?.day == date.day &&
-                                      _selectedDate?.month == date.month &&
-                                      _selectedDate?.year == date.year;
-                                  final monthStr = DateFormat(
-                                    'MMM',
-                                    'es_MX',
-                                  ).format(date).toUpperCase();
-                                  final dayStr = DateFormat(
-                                    'EEE',
-                                    'es_MX',
-                                  ).format(date).replaceAll('.', '');
+                              itemCount: 60,
+                              itemBuilder: (context, index) {
+                                final date = _carruselStartDate.add(Duration(days: index));
+                                final dateStr =
+                                    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedDate = date;
-                                          _selectedTime = null;
+                                final isSelected =
+                                    date.year == _selectedDate?.year &&
+                                    date.month == _selectedDate?.month &&
+                                    date.day == _selectedDate?.day;
 
-                                          // Update carousel if selected date is out of range
-                                          final diff = date.difference(_carruselStartDate).inDays;
-                                          if (diff < 0 || diff >= 60) {
-                                            _carruselStartDate = DateTime(
-                                              date.year,
-                                              date.month,
-                                              date.day,
-                                            ).subtract(const Duration(days: 15));
-                                          }
-                                        });
-                                        _fetchBookedTimesForDate();
-                                        _scrollToSelectedDay(date);
-                                      },
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          gradient: isSelected
-                                              ? const LinearGradient(
-                                                  colors: [
-                                                    AltheaColors.gold,
-                                                    AltheaColors.goldLight,
-                                                  ],
-                                                )
-                                              : null,
-                                          color: isSelected
-                                              ? null
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? Colors.transparent
-                                                : AltheaColors.borderLight,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              monthStr,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                                color: isSelected
-                                                    ? Colors.white.withOpacity(
-                                                        0.8,
-                                                      )
-                                                    : AltheaColors
-                                                          .textSecondary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${date.day}',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.w900,
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : AltheaColors.navy,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              dayStr,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: isSelected
-                                                    ? Colors.white.withOpacity(
-                                                        0.9,
-                                                      )
-                                                    : AltheaColors.navy,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                final validDays = _validSqlDays;
+                                final isWorkingDay = validDays.isEmpty || validDays.contains(date.weekday - 1);
+                                
+                                // Get blocked date strings for easy comparison
+                                final blockedDateStrings = _blockedDates
+                                    .map((block) => block['fecha'] as String)
+                                    .toSet();
+                                final isBlocked = blockedDateStrings.contains(dateStr);
+
+                                // Check if date is in the past
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                final isPast = date.isBefore(today);
+
+                                // Disable if past, not a working day, or blocked
+                                final isEnabled = !isPast && isWorkingDay && !isBlocked;
+
+                                final dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                                final dayName = dayNames[date.weekday - 1];
+                                final monthStr = DateFormat('MMM', 'es_MX').format(date).toUpperCase();
+
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (isEnabled) {
+                                      setState(() {
+                                        _selectedDate = date;
+                                        _selectedTime = null;
+
+                                        // Update carousel if selected date is out of range
+                                        final diff = date.difference(_carruselStartDate).inDays;
+                                        if (diff < 0 || diff >= 60) {
+                                          _carruselStartDate = DateTime(
+                                            date.year,
+                                            date.month,
+                                            date.day,
+                                          );
+                                        }
+                                      });
+                                      _fetchBookedTimesForDate();
+                                      _scrollToSelectedDay(date);
+                                    }
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 70,
+                                    margin: const EdgeInsets.only(right: 12, bottom: 8, top: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AltheaColors.gold : Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AltheaColors.gold
+                                            : (isEnabled ? AltheaColors.borderLight : Colors.grey.shade300),
                                       ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: AltheaColors.gold.withValues(alpha: 0.3),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ]
+                                          : [],
                                     ),
-                                  );
-                                }).toList(),
-                              ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          dayName,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected
+                                                ? Colors.white.withValues(alpha: 0.9)
+                                                : (isEnabled
+                                                      ? AltheaColors.textSecondary
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '${date.day}',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : (isEnabled
+                                                      ? AltheaColors.navy
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          monthStr,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected
+                                                ? Colors.white.withValues(alpha: 0.9)
+                                                : (isEnabled
+                                                      ? AltheaColors.textSecondary
+                                                      : Colors.grey.shade400),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -945,7 +922,7 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 selectableDayPredicate: (DateTime val) {
                                   final sqlDay = val.weekday - 1;
                                   if (!validDays.contains(sqlDay)) return false;
-                                  
+
                                   // Check if date is blocked by doctor
                                   final dateString = '${val.year}-${val.month.toString().padLeft(2, '0')}-${val.day.toString().padLeft(2, '0')}';
                                   final isBlocked = _blockedDates.any((block) => block['fecha'] == dateString);
@@ -956,8 +933,19 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                                 setState(() {
                                   _selectedDate = d;
                                   _selectedTime = null;
+
+                                  // Update carousel if selected date is out of range
+                                  final diff = d.difference(_carruselStartDate).inDays;
+                                  if (diff < 0 || diff >= 60) {
+                                    _carruselStartDate = DateTime(
+                                      d.year,
+                                      d.month,
+                                      d.day,
+                                    );
+                                  }
                                 });
                                 _fetchBookedTimesForDate();
+                                _scrollToSelectedDay(d);
                               }
                             },
                             child: Container(

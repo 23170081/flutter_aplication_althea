@@ -108,6 +108,270 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
+  void _showAppointmentDetails(Map<String, dynamic> appointment) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Detalles de la Cita',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AltheaColors.navy,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Detalles
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AltheaColors.lightBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _buildDetailRow(Icons.person_outline, 'Doctor', appointment['doctor']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.medical_services_outlined, 'Especialidad', appointment['specialty']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.business_outlined, 'Sucursal', appointment['branch']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.calendar_today_outlined, 'Fecha', appointment['dateFormatted']!),
+                    const Divider(height: 24),
+                    _buildDetailRow(Icons.access_time_rounded, 'Hora', appointment['timeFormatted']!),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Botón de cancelar cita
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Cerrar bottom sheet
+                  _cancelAppointment(appointment);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Cancelar Cita',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  'Cerrar',
+                  style: TextStyle(
+                    color: AltheaColors.navy,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: AltheaColors.gold, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AltheaColors.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AltheaColors.navy,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _cancelAppointment(Map<String, dynamic> appointment) async {
+    final dateTime = appointment['dateTime'] as DateTime;
+    final timeDiff = dateTime.difference(DateTime.now());
+    final isMoreThanOneDay = timeDiff.inHours > 24;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Cancelar Cita',
+          style: TextStyle(
+            color: AltheaColors.navy,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          isMoreThanOneDay
+              ? '¿Estás seguro de cancelar esta cita? Al faltar más de un día, se te hará el reembolso del anticipo dado.'
+              : '¿Estás seguro de cancelar esta cita? Al faltar menos de un día, no habrá reembolso del anticipo.',
+          style: const TextStyle(color: AltheaColors.textSecondary),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Volver',
+              style: TextStyle(
+                color: AltheaColors.textSecondary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Sí, Cancelar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      try {
+        final supabase = Supabase.instance.client;
+        final user = context.read<UserProvider>().user;
+        if (user == null) throw Exception('No autenticado');
+
+        // Obtener detalles de la cita
+        final citaData = await supabase
+            .from('citas')
+            .select('metodo_pago, referencia_pago')
+            .eq('id', appointment['id'])
+            .single();
+
+        final metodoPago = citaData['metodo_pago'] as String?;
+        final referenciaPago = citaData['referencia_pago'] as String?;
+
+        // Monto fijo del anticipo según casos de uso
+        const montoAnticipo = 500.0;
+
+        // Determinar estado del reembolso según las reglas de negocio
+        final estadoReembolso = isMoreThanOneDay ? 'pendiente' : 'no_aplicable';
+        final notas = isMoreThanOneDay
+            ? 'Reembolso pendiente de procesamiento'
+            : 'No aplica reembolso por cancelación con menos de 24 horas de anticipación';
+
+        // Actualizar la cita
+        await supabase
+            .from('citas')
+            .update({
+              'estado': 'cancelada',
+              'cancelada_por': user.id,
+              'fecha_cancelacion': DateTime.now().toIso8601String(),
+            })
+            .eq('id', appointment['id']);
+
+        // Crear registro de reembolso
+        await supabase.from('reembolsos').insert({
+          'cita_id': appointment['id'],
+          'usuario_id': user.id,
+          'monto': montoAnticipo,
+          'estado': estadoReembolso,
+          'motivo_cancelacion': 'paciente',
+          'metodo_pago': metodoPago,
+          'referencia_pago': referenciaPago,
+          'notas': notas,
+        });
+
+        _fetchUpcomingAppointments();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isMoreThanOneDay
+                    ? 'Cita cancelada. Reembolso en proceso.'
+                    : 'Cita cancelada. No aplica reembolso.',
+              ),
+              backgroundColor: isMoreThanOneDay ? Colors.green : Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>().user;
@@ -206,7 +470,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ..._upcomingAppointments.map(
                       (a) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _AppointmentCard(appointment: a),
+                        child: _AppointmentCard(
+                          appointment: a,
+                          onTap: () => _showAppointmentDetails(a),
+                        ),
                       ),
                     ),
                 ],
@@ -402,20 +669,26 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
 
 class _AppointmentCard extends StatelessWidget {
   final Map<String, dynamic> appointment;
-  const _AppointmentCard({required this.appointment});
+  final VoidCallback? onTap;
+  const _AppointmentCard({required this.appointment, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final a = appointment;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AltheaColors.borderLight),
-      ),
-      child: Row(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AltheaColors.borderLight),
+          ),
+          child: Row(
         children: [
           Expanded(
             child: Column(
@@ -493,6 +766,8 @@ class _AppointmentCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+        ),
       ),
     );
   }
