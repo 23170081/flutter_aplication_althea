@@ -19,6 +19,7 @@ import 'package:flutter_application_althea/features/receptionist/receptionist_da
 import 'package:flutter_application_althea/features/receptionist/search_patient_screen.dart';
 import 'package:flutter_application_althea/features/receptionist/register_pacient_recepcionist.dart';
 import 'package:flutter_application_althea/features/receptionist/book_for_patient_screen.dart';
+import 'package:flutter_application_althea/features/receptionist/receptionist_appointments_screen.dart';
 import 'package:flutter_application_althea/features/admin/admin_dashboard_screen.dart';
 import 'package:flutter_application_althea/features/admin/branch_management_screen.dart';
 import 'package:flutter_application_althea/features/notifications/notifications_screen.dart';
@@ -26,7 +27,7 @@ import 'package:flutter_application_althea/features/notifications/notifications_
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter(BuildContext context) {
-  return GoRouter(
+  return GoRouter( 
     navigatorKey: navigatorKey,
     initialLocation: '/',
     routes: [
@@ -115,6 +116,10 @@ GoRouter createRouter(BuildContext context) {
       GoRoute(
         path: '/receptionist/register-patient',
         builder: (_, __) => const ReceptionistRegisterPatientScreen(),
+      ),
+      GoRoute(
+        path: '/receptionist/appointments',
+        builder: (_, __) => const ReceptionistAppointmentsScreen(),
       ),
 
       // Admin
