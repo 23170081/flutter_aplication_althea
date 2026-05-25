@@ -37,6 +37,7 @@ CREATE TABLE public.doctores (
   usuario_id uuid NOT NULL,
   especialidad text,
   consultorio text,
+  avatar_url text,
   CONSTRAINT doctores_pkey PRIMARY KEY (id),
   CONSTRAINT doctores_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
 );
@@ -91,6 +92,23 @@ CREATE TABLE public.recepcionistas (
   CONSTRAINT fk_usuario FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
   CONSTRAINT fk_sucursal FOREIGN KEY (sucursal_id) REFERENCES public.sucursales(id)
 );
+CREATE TABLE public.reembolsos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cita_id uuid NOT NULL,
+  usuario_id uuid NOT NULL,
+  monto numeric NOT NULL,
+  estado text NOT NULL DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'completado'::text, 'no_aplicable'::text])),
+  motivo_cancelacion text NOT NULL CHECK (motivo_cancelacion = ANY (ARRAY['paciente'::text, 'doctor'::text, 'recepcionista'::text])),
+  fecha_solicitud timestamp with time zone DEFAULT now(),
+  fecha_procesamiento timestamp with time zone,
+  metodo_pago text,
+  referencia_pago text,
+  referencia_reembolso text,
+  notas text,
+  CONSTRAINT reembolsos_pkey PRIMARY KEY (id),
+  CONSTRAINT reembolsos_cita_id_fkey FOREIGN KEY (cita_id) REFERENCES public.citas(id),
+  CONSTRAINT reembolsos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
 CREATE TABLE public.sucursales (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   nombre text NOT NULL,
@@ -112,21 +130,4 @@ CREATE TABLE public.usuarios (
   curp text NOT NULL UNIQUE CHECK (length(curp) <= 18),
   password text NOT NULL,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.reembolsos (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  cita_id uuid NOT NULL,
-  usuario_id uuid NOT NULL,
-  monto numeric NOT NULL,
-  estado text NOT NULL DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'completado'::text, 'no_aplicable'::text])),
-  motivo_cancelacion text NOT NULL CHECK (motivo_cancelacion = ANY (ARRAY['paciente'::text, 'doctor'::text, 'recepcionista'::text])),
-  fecha_solicitud timestamp with time zone DEFAULT now(),
-  fecha_procesamiento timestamp with time zone,
-  metodo_pago text,
-  referencia_pago text,
-  referencia_reembolso text,
-  notas text,
-  CONSTRAINT reembolsos_pkey PRIMARY KEY (id),
-  CONSTRAINT reembolsos_cita_id_fkey FOREIGN KEY (cita_id) REFERENCES public.citas(id),
-  CONSTRAINT reembolsos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
 );
