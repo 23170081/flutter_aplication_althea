@@ -76,6 +76,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
               ...[
                 ['Nombre completo', 'Dr. Juan García', Icons.person_outline_rounded],
                 ['Especialidad', 'Cardiología', Icons.medical_services_outlined],
+                ['Consultorio', 'Consultorio 301', Icons.door_front_door_rounded],
                 ['Correo electrónico', 'dr.garcia@althea.mx', Icons.mail_outline_rounded],
                 ['Teléfono', '+52 667 123 4567', Icons.phone_outlined],
               ].map((f) => Padding(

@@ -30,7 +30,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
     try {
       final response = await Supabase.instance.client
           .from('usuarios')
-          .select('id, nombre_completo, doctores(id, especialidad)')
+          .select('id, nombre_completo, doctores(id, especialidad, consultorio)')
           .eq('rol', 'doctor');
 
       final List<Map<String, String>> fetchedDoctors = [];
@@ -40,14 +40,17 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
         final doctoresData = user['doctores'];
         String specialty = 'General';
         String doctorId = user['id'].toString(); // Fallback
+        String consultorio = 'No asignado';
         
         if (doctoresData != null) {
           if (doctoresData is List && doctoresData.isNotEmpty) {
             specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
             doctorId = doctoresData[0]['id']?.toString() ?? user['id'].toString();
+            consultorio = doctoresData[0]['consultorio']?.toString() ?? 'No asignado';
           } else if (doctoresData is Map) {
             specialty = doctoresData['especialidad']?.toString() ?? 'General';
             doctorId = doctoresData['id']?.toString() ?? user['id'].toString();
+            consultorio = doctoresData['consultorio']?.toString() ?? 'No asignado';
           }
         }
 
@@ -59,6 +62,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
           'id': doctorId, // Usar doctores.id en lugar de usuarios.id
           'name': user['nombre_completo']?.toString() ?? 'Doctor',
           'specialty': specialty,
+          'consultorio': consultorio,
           'rating': '5.0', // Dato simulado
           'reviews': '0',  // Dato simulado
           'availability': 'Consultar disponibilidad',
@@ -384,6 +388,25 @@ class _DoctorCardState extends State<_DoctorCard> {
                             color: AltheaColors.gold,
                             fontWeight: FontWeight.w700,
                           ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.door_front_door_rounded,
+                              size: 14,
+                              color: AltheaColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              d['consultorio']!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AltheaColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 10),
                         Container(

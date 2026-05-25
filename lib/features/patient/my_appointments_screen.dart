@@ -15,8 +15,8 @@ class MyAppointmentsScreen extends StatefulWidget {
 
 class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _upcomingAppointments = [];
-  List<Map<String, dynamic>> _pastAppointments = [];
+  List<Map<String, dynamic>> _allAppointments = [];
+  String _selectedFilter = 'todas'; // 'todas', 'proximas', 'completadas', 'canceladas'
 
   @override
   void initState() {
@@ -49,21 +49,14 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       ''')
           .eq('usuario_id', user.id);
 
-      final now = DateTime.now();
-
-      List<Map<String, dynamic>> upcoming = [];
-      List<Map<String, dynamic>> past = [];
+      List<Map<String, dynamic>> allAppointments = [];
 
       for (var row in data) {
         final dateStr = row['fecha'].toString();
         final timeStr = row['hora'].toString();
 
         final dateTime = DateTime.parse('${dateStr}T$timeStr');
-
-        final isPast = dateTime.isBefore(now);
-        final status = isPast && row['estado'] == 'programada'
-            ? 'completada'
-            : row['estado'];
+        final estado = row['estado']?.toString() ?? 'programada';
 
         String doctorName = 'Doctor';
         String specialty = 'Especialidad';
@@ -81,7 +74,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           }
         }
 
-        final Map<String, dynamic> appointment = {
+        allAppointments.add({
           'id': row['id'],
           'doctor': doctorName,
           'specialty': specialty,
@@ -89,38 +82,18 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           'dateTime': dateTime,
           'dateFormatted': DateFormat('dd MMM', 'es_MX').format(dateTime),
           'timeFormatted': DateFormat('h:mm a').format(dateTime),
-          'status': status,
-        };
-
-        if (isPast) {
-          past.add(appointment);
-        } else {
-          upcoming.add(appointment);
-        }
+          'estado': estado,
+        });
       }
 
-      // Sort upcoming: soonest first, but cancelled at the bottom
-      upcoming.sort((a, b) {
-        final aIsCancelled = a['status'] == 'cancelada';
-        final bIsCancelled = b['status'] == 'cancelada';
-        if (aIsCancelled && !bIsCancelled) return 1;
-        if (!aIsCancelled && bIsCancelled) return -1;
-        return (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime);
-      });
-
-      // Sort past: most recent first, but cancelled at the bottom
-      past.sort((a, b) {
-        final aIsCancelled = a['status'] == 'cancelada';
-        final bIsCancelled = b['status'] == 'cancelada';
-        if (aIsCancelled && !bIsCancelled) return 1;
-        if (!aIsCancelled && bIsCancelled) return -1;
-        return (b['dateTime'] as DateTime).compareTo(a['dateTime'] as DateTime);
-      });
+      allAppointments.sort(
+        (a, b) =>
+            (a['dateTime'] as DateTime).compareTo(b['dateTime'] as DateTime),
+      );
 
       if (mounted) {
         setState(() {
-          _upcomingAppointments = upcoming;
-          _pastAppointments = past;
+          _allAppointments = allAppointments;
           _isLoading = false;
         });
       }
@@ -260,7 +233,219 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     }
   }
 
-  void _showAppointmentDetails(Map<String, dynamic> appointment, bool isUpcoming, bool isCancelled) {
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: AltheaColors.gold, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AltheaColors.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AltheaColors.navy,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> get _filteredAppointments {
+    final now = DateTime.now();
+    switch (_selectedFilter) {
+      case 'todas':
+        return _allAppointments;
+      case 'proximas':
+        return _allAppointments
+            .where((a) => a['estado'] == 'programada' && (a['dateTime'] as DateTime).isAfter(now))
+            .toList();
+      case 'completadas':
+        return _allAppointments.where((a) => a['estado'] == 'terminada').toList();
+      case 'canceladas':
+        return _allAppointments.where((a) => a['estado'] == 'cancelada').toList();
+      default:
+        return _allAppointments;
+    }
+  }
+
+  Color _getStatusColor(String estado) {
+    switch (estado) {
+      case 'programada':
+        return AltheaColors.gold;
+      case 'terminada':
+        return Colors.green;
+      case 'cancelada':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusLabel(String estado) {
+    switch (estado) {
+      case 'programada':
+        return 'PROGRAMADA';
+      case 'terminada':
+        return 'COMPLETADA';
+      case 'cancelada':
+        return 'CANCELADA';
+      default:
+        return estado.toUpperCase();
+    }
+  }
+
+  Widget _buildFilterTab(String label, String filter) {
+    final isSelected = _selectedFilter == filter;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = filter;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AltheaColors.navy : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AltheaColors.navy : AltheaColors.borderLight,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AltheaColors.textSecondary,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getEmptyMessage() {
+    switch (_selectedFilter) {
+      case 'todas':
+        return 'No tienes citas';
+      case 'proximas':
+        return 'No tienes citas próximas';
+      case 'completadas':
+        return 'No tienes citas completadas';
+      case 'canceladas':
+        return 'No tienes citas canceladas';
+      default:
+        return 'No tienes citas';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AltheaColors.lightBg,
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AltheaColors.navy,
+                AltheaColors.navyMid,
+                AltheaColors.navy,
+              ],
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        ),
+        toolbarHeight: 80,
+        title: const Text(
+          'Mis Citas',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 24),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.go('/patient/dashboard'),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AltheaColors.navy),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Pestañas de filtrado
+                      Container(
+                        height: 50,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            _buildFilterTab('Todas', 'todas'),
+                            _buildFilterTab('Próximas', 'proximas'),
+                            _buildFilterTab('Completadas', 'completadas'),
+                            _buildFilterTab('Canceladas', 'canceladas'),
+                          ],
+                        ),
+                      ),
+                      if (_filteredAppointments.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: Text(
+                              _getEmptyMessage(),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: AltheaColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._filteredAppointments.map(
+                          (a) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _AppointmentCard(
+                              appointment: a,
+                              onTap: () => _showAppointmentDetails(a),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  void _showAppointmentDetails(Map<String, dynamic> appointment) {
+    final estado = appointment['estado'] as String;
+    final isCancelada = estado == 'cancelada';
+    final isCompletada = estado == 'terminada';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -299,6 +484,26 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               ),
               const SizedBox(height: 24),
               
+              // Estado badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(estado).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _getStatusColor(estado).withOpacity(0.3)),
+                ),
+                child: Text(
+                  _getStatusLabel(estado),
+                  style: TextStyle(
+                    color: _getStatusColor(estado),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
               // Detalles
               Container(
                 padding: const EdgeInsets.all(16),
@@ -322,8 +527,8 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Botones de acción
-              if (isUpcoming && !isCancelled)
+              // Botón de cancelar cita (solo para citas programadas)
+              if (!isCancelada && !isCompletada)
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context); // Cerrar bottom sheet
@@ -343,23 +548,6 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                )
-              else if (isCancelled)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Cita Cancelada',
-                    style: TextStyle(
-                      color: AltheaColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -385,214 +573,113 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: AltheaColors.gold, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _AppointmentCard({required Map<String, dynamic> appointment, required VoidCallback onTap}) {
+    final estado = appointment['estado'] as String;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AltheaColors.borderLight),
+          ),
+          child: Row(
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AltheaColors.textSecondary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      appointment['doctor']!,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: estado == 'cancelada'
+                            ? AltheaColors.textSecondary
+                            : AltheaColors.navy,
+                        decoration: estado == 'cancelada'
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      appointment['specialty']!,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AltheaColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      appointment['branch']!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AltheaColors.navy,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 14,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${appointment['dateFormatted']} · ${appointment['timeFormatted']}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AltheaColors.navy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AltheaColors.navy,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(estado).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _getStatusLabel(estado),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _getStatusColor(estado),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey.shade400,
+                    size: 20,
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final allAppointments = [..._upcomingAppointments, ..._pastAppointments];
-
-    return Scaffold(
-      backgroundColor: AltheaColors.lightBg,
-      appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AltheaColors.navy,
-                AltheaColors.navyMid,
-                AltheaColors.navy,
-              ],
-            ),
-          ),
-        ),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-        ),
-        toolbarHeight: 80,
-        title: const Text(
-          'Mis Citas',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 24),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go('/patient/dashboard'),
-        ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AltheaColors.navy),
-            )
-          : allAppointments.isEmpty
-          ? const Center(
-              child: Text(
-                'No tienes citas programadas',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AltheaColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: allAppointments.length,
-              itemBuilder: (_, i) {
-                final a = allAppointments[i];
-                final isUpcoming = _upcomingAppointments.contains(a);
-                final isCancelled = a['status'] == 'cancelada';
-
-                String badgeText = 'Próxima';
-                Color badgeColor = AltheaColors.gold;
-
-                if (isCancelled) {
-                  badgeText = 'Cancelada';
-                  badgeColor = Colors.red;
-                } else if (!isUpcoming) {
-                  badgeText = 'Completada';
-                  badgeColor = Colors.green;
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _showAppointmentDetails(a, isUpcoming, isCancelled),
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AltheaColors.borderLight),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    a['doctor']!,
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w800,
-                                      color: isCancelled
-                                          ? AltheaColors.textSecondary
-                                          : AltheaColors.navy,
-                                      decoration: isCancelled
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    a['specialty']!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: AltheaColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    a['branch']!,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AltheaColors.navy,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.calendar_today_outlined,
-                                        size: 14,
-                                        color: Colors.grey[400],
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '${a['dateFormatted']} · ${a['timeFormatted']}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AltheaColors.navy,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: badgeColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    badgeText,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: badgeColor,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Colors.grey.shade400,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
     );
   }
 }

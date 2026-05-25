@@ -291,10 +291,50 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     if (confirm == true) {
       try {
         final supabase = Supabase.instance.client;
+        final user = context.read<UserProvider>().user;
+        if (user == null) throw Exception('No autenticado');
+
+        // Obtener detalles de la cita para notificaciones
+        final citaData = await supabase
+            .from('citas')
+            .select('''
+              usuario_id,
+              fecha,
+              hora,
+              usuarios!citas_usuario_id_fkey (
+                nombre_completo
+              )
+            ''')
+            .eq('id', appointment['id'])
+            .single();
+
+        final usuarioId = citaData['usuario_id'];
+        final pacienteNombre = citaData['usuarios']?['nombre_completo'] ?? 'Paciente';
+        final fecha = citaData['fecha'];
+        final hora = citaData['hora'];
+
+        // Actualizar la cita
         await supabase
             .from('citas')
             .update({'estado': 'terminada'})
             .eq('id', appointment['id']);
+
+        // Enviar notificación al paciente
+        await supabase.from('notifications').insert({
+          'user_id': usuarioId,
+          'title': 'Cita Completada',
+          'message': 'Tu cita con el doctor ha sido marcada como completada. Fecha: $fecha, Hora: $hora',
+          'type': 'cita_completada',
+        });
+
+        // Enviar notificación al doctor
+        await supabase.from('notifications').insert({
+          'user_id': user.id,
+          'title': 'Cita Completada',
+          'message': 'Has marcado la cita con $pacienteNombre como completada. Fecha: $fecha, Hora: $hora',
+          'type': 'cita_completada',
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Cita completada exitosamente.')),

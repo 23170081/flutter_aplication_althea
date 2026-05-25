@@ -321,6 +321,116 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
     }
   }
 
+  Future<void> _completeAppointment(Map<String, dynamic> appointment) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Completar Cita',
+          style: TextStyle(
+            color: AltheaColors.navy,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          '¿Estás seguro de marcar esta cita como completada? Esto indicará que la consulta ha finalizado.',
+          style: TextStyle(color: AltheaColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'No, Mantener',
+              style: TextStyle(
+                color: AltheaColors.navy,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AltheaColors.navy,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Sí, Completar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final supabase = Supabase.instance.client;
+        final user = context.read<UserProvider>().user;
+        if (user == null) throw Exception('No autenticado');
+
+        // Obtener detalles de la cita para notificaciones
+        final citaData = await supabase
+            .from('citas')
+            .select('''
+              usuario_id,
+              fecha,
+              hora,
+              usuarios!citas_usuario_id_fkey (
+                nombre_completo
+              )
+            ''')
+            .eq('id', appointment['id'])
+            .single();
+
+        final usuarioId = citaData['usuario_id'];
+        final pacienteNombre = citaData['usuarios']?['nombre_completo'] ?? 'Paciente';
+        final fecha = citaData['fecha'];
+        final hora = citaData['hora'];
+
+        // Actualizar la cita
+        await supabase
+            .from('citas')
+            .update({'estado': 'terminada'})
+            .eq('id', appointment['id']);
+
+        // Enviar notificación al paciente
+        await supabase.from('notifications').insert({
+          'user_id': usuarioId,
+          'title': 'Cita Completada',
+          'message': 'Tu cita con el doctor ha sido marcada como completada. Fecha: $fecha, Hora: $hora',
+          'type': 'cita_completada',
+        });
+
+        // Enviar notificación al doctor
+        await supabase.from('notifications').insert({
+          'user_id': user.id,
+          'title': 'Cita Completada',
+          'message': 'Has marcado la cita con $pacienteNombre como completada. Fecha: $fecha, Hora: $hora',
+          'type': 'cita_completada',
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cita completada exitosamente.')),
+          );
+          _fetchAppointmentsForMonth(_currentMonth);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error al completar: $e')));
+        }
+      }
+    }
+  }
+
   void _showAppointmentDetails(Map<String, dynamic> appointment) {
     final isCompleted = appointment['isCompleted'] == true;
     showModalBottomSheet(
@@ -412,6 +522,25 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
               ),
 
               if (!isCompleted) ...[
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _completeAppointment(appointment);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AltheaColors.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Marcar como Completada',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {
