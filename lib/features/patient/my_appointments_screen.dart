@@ -178,7 +178,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         final referenciaPago = citaData['referencia_pago'] as String?;
 
         // Monto fijo del anticipo según casos de uso
-        const montoAnticipo = 500.0;
+        const montoAnticipo = 400.0;
 
         // Determinar estado del reembolso según las reglas de negocio
         final estadoReembolso = isMoreThanOneDay ? 'pendiente' : 'no_aplicable';
