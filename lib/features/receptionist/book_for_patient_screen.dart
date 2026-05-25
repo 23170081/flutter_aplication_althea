@@ -20,15 +20,9 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
   Map<String, dynamic>? _selectedBranch;
   DateTime? _selectedDate;
   String? _selectedTime;
-  String _paymentMethod = 'card';
   bool _showConfirmation = false;
   bool _isProcessing = false;
   String? _error;
-
-  String _cardName = '';
-  String _cardNumber = '';
-  String _expiry = '';
-  String _cvv = '';
 
   List<Map<String, dynamic>> _patients = [];
   List<Map<String, dynamic>> _doctors = [];
@@ -303,38 +297,6 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
     return slots;
   }
 
-  bool get _isCardNameValid => _cardName.trim().length >= 3;
-
-  bool get _isCardNumberValid {
-    final clean = _cardNumber.replaceAll(RegExp(r'\D'), '');
-    return clean.length == 16;
-  }
-
-  bool get _isExpiryValid {
-    if (_expiry.length != 5) return false;
-    final regExp = RegExp(r'^(0[1-9]|1[0-2])\/[0-9]{2}$');
-    if (!regExp.hasMatch(_expiry)) return false;
-    try {
-      final parts = _expiry.split('/');
-      final month = int.parse(parts[0]);
-      final year = int.parse('20${parts[1]}');
-      final now = DateTime.now();
-      final expiryDate = DateTime(year, month + 1).subtract(const Duration(days: 1));
-      return expiryDate.isAfter(now) || (expiryDate.year == now.year && expiryDate.month == now.month);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  bool get _isCvvValid {
-    final clean = _cvv.replaceAll(RegExp(r'\D'), '');
-    return clean.length == 3 || clean.length == 4;
-  }
-
-  bool get _isCardValid =>
-      _paymentMethod != 'card' ||
-      (_isCardNameValid && _isCardNumberValid && _isExpiryValid && _isCvvValid);
-
   void _handleBooking() async {
     setState(() {
       _isProcessing = true;
@@ -395,8 +357,7 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
         _selectedBranch != null &&
         _selectedDate != null &&
         _selectedTime != null &&
-        !_isProcessing &&
-        _isCardValid;
+        !_isProcessing;
 
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
@@ -1044,193 +1005,6 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Payment Method Section
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AltheaColors.borderLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AltheaColors.lightBg,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AltheaColors.borderLight,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.credit_card,
-                                  color: AltheaColors.gold,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Método de pago',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: AltheaColors.navy,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          GestureDetector(
-                            onTap: () => setState(() => _paymentMethod = 'card'),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: _paymentMethod == 'card'
-                                    ? AltheaColors.gold.withOpacity(0.05)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: _paymentMethod == 'card'
-                                      ? AltheaColors.gold
-                                      : AltheaColors.borderLight,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: _paymentMethod == 'card'
-                                          ? AltheaColors.gold.withOpacity(0.2)
-                                          : AltheaColors.lightBg,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.credit_card,
-                                      color: _paymentMethod == 'card'
-                                          ? AltheaColors.gold
-                                          : AltheaColors.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Tarjeta',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: AltheaColors.navy,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Crédito o Débito',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: AltheaColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: _paymentMethod == 'card'
-                                          ? AltheaColors.gold
-                                          : Colors.transparent,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: _paymentMethod == 'card'
-                                            ? AltheaColors.gold
-                                            : AltheaColors.borderLight,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: _paymentMethod == 'card'
-                                        ? const Center(
-                                            child: Icon(
-                                              Icons.check,
-                                              size: 14,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          if (_paymentMethod == 'card') ...[
-                            const SizedBox(height: 20),
-                            const Divider(color: AltheaColors.borderLight),
-                            const SizedBox(height: 20),
-                            _buildTextField(
-                              'Nombre en la tarjeta',
-                              'Como aparece en el plástico',
-                              (val) => setState(() => _cardName = val),
-                              maxLength: 50,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              'Número de tarjeta',
-                              '0000 0000 0000 0000',
-                              (val) => setState(() => _cardNumber = val),
-                              isNumber: true,
-                              maxLength: 19,
-                              inputFormatters: [
-                                CardNumberInputFormatter(),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTextField(
-                                    'Vencimiento',
-                                    'MM/YY',
-                                    (val) => setState(() => _expiry = val),
-                                    maxLength: 5,
-                                    inputFormatters: [
-                                      CardExpiryInputFormatter(),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildTextField(
-                                    'CVV',
-                                    '***',
-                                    (val) => setState(() => _cvv = val),
-                                    isPassword: true,
-                                    isNumber: true,
-                                    maxLength: 4,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
                     // Cost summary and book button
                     Container(
                       padding: const EdgeInsets.all(24),
@@ -1414,9 +1188,7 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          _paymentMethod == 'card'
-                                              ? 'Pagar Anticipo y Agendar'
-                                              : 'Confirmar y Agendar',
+                                          'Confirmar y Agendar',
                                           style: TextStyle(
                                             color: isButtonEnabled
                                                 ? AltheaColors.navy
@@ -1449,59 +1221,6 @@ class _BookForPatientScreenState extends State<BookForPatientScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField(
-    String label,
-    String hint,
-    Function(String) onChanged, {
-    bool isNumber = false,
-    bool isPassword = false,
-    int? maxLength,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: AltheaColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          onChanged: onChanged,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          obscureText: isPassword,
-          maxLength: maxLength,
-          inputFormatters: inputFormatters,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: AltheaColors.navy,
-          ),
-          decoration: InputDecoration(
-            counterText: "",
-            hintText: hint,
-            hintStyle: TextStyle(
-              color: AltheaColors.textSecondary.withOpacity(0.5),
-            ),
-            filled: true,
-            fillColor: AltheaColors.lightBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1719,54 +1438,3 @@ class _CustomDropdownCard extends StatelessWidget {
   }
 }
 
-class CardNumberInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (text.length > 16) {
-      text = text.substring(0, 16);
-    }
-
-    var buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      var nonZeroIndex = i + 1;
-      if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) {
-        buffer.write(' ');
-      }
-    }
-
-    var string = buffer.toString();
-    return newValue.copyWith(
-      text: string,
-      selection: TextSelection.collapsed(offset: string.length),
-    );
-  }
-}
-
-class CardExpiryInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (text.length > 4) {
-      text = text.substring(0, 4);
-    }
-
-    var buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      var nonZeroIndex = i + 1;
-      if (nonZeroIndex == 2 && nonZeroIndex != text.length) {
-        buffer.write('/');
-      }
-    }
-
-    var string = buffer.toString();
-    return newValue.copyWith(
-      text: string,
-      selection: TextSelection.collapsed(offset: string.length),
-    );
-  }
-}
