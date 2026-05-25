@@ -427,7 +427,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   final patientName = Uri.encodeComponent(appointment['patient']!);
                   final patientId = appointment['patientId']?.toString();
                   final queryString = patientId != null ? '&patientId=${Uri.encodeComponent(patientId)}' : '';
-                  context.go('/doctor/medical-record?patient=$patientName$queryString');
+                  context.go('/doctor/medical-record?patient=$patientName$queryString&from=dashboard');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AltheaColors.navy,
@@ -704,14 +704,6 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     gradient: const [AltheaColors.navy, AltheaColors.navyMid],
                     textColor: Colors.white,
                     onTap: () => context.go('/doctor/day-blocks'),
-                  ),
-                  const SizedBox(height: 12),
-                  _QuickActionCard(
-                    icon: Icons.description_outlined,
-                    title: 'Nuevas Notas Médicas',
-                    subtitle: 'Añadir registros rápidamente',
-                    light: true,
-                    onTap: () => context.go('/doctor/medical-record'),
                   ),
                 ],
               ),

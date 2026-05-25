@@ -96,6 +96,7 @@ GoRouter createRouter(BuildContext context) {
         builder: (_, state) => MedicalRecordScreen(
           patientName: state.uri.queryParameters['patient'] ?? '',
           patientId: state.uri.queryParameters['patientId'],
+          from: state.uri.queryParameters['from'] ?? 'patients',
         ),
       ),
 

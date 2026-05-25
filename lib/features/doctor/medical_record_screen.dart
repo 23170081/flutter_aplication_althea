@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
@@ -8,8 +9,9 @@ import 'package:go_router/go_router.dart';
 class MedicalRecordScreen extends StatefulWidget {
   final String patientName;
   final String? patientId;
+  final String from;
 
-  const MedicalRecordScreen({super.key, required this.patientName, this.patientId});
+  const MedicalRecordScreen({super.key, required this.patientName, this.patientId, this.from = 'patients'});
 
   @override
   State<MedicalRecordScreen> createState() => _MedicalRecordScreenState();
@@ -27,8 +29,7 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   final TextEditingController _motivoController = TextEditingController();
   final TextEditingController _diagnosticoController = TextEditingController();
   final TextEditingController _tratamientoController = TextEditingController();
-  final TextEditingController _cedulaController = TextEditingController();
-  final TextEditingController _generoController = TextEditingController();
+  String? _selectedSexo;
   final TextEditingController _pesoController = TextEditingController();
   final TextEditingController _alturaController = TextEditingController();
   final TextEditingController _temperaturaController = TextEditingController();
@@ -47,8 +48,6 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
     _motivoController.dispose();
     _diagnosticoController.dispose();
     _tratamientoController.dispose();
-    _cedulaController.dispose();
-    _generoController.dispose();
     _pesoController.dispose();
     _alturaController.dispose();
     _temperaturaController.dispose();
@@ -93,6 +92,21 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
 
       List<Map<String, dynamic>> notes = [];
       if (expedienteData != null) {
+        final user = context.read<UserProvider>().user;
+        if (user == null) {
+          throw Exception('Usuario no autenticado.');
+        }
+
+        final doctorData = await supabase
+            .from('doctores')
+            .select('id')
+            .eq('usuario_id', user.id)
+            .maybeSingle();
+
+        if (doctorData == null || doctorData['id'] == null) {
+          throw Exception('No se encontró el perfil de doctor.');
+        }
+
         final notasData = await supabase
             .from('notas_medicas')
             .select('''
@@ -101,17 +115,17 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
               motivo_consulta,
               diagnostico,
               tratamiento,
-              genero,
+              sexo,
               peso,
               altura,
               temperatura,
               presion_arterial,
               frecuencia_cardiaca,
               frecuencia_respiratoria,
-              cedula_profesional,
               doctor_id
             ''')
             .eq('expediente_id', expedienteData['id'])
+            .eq('doctor_id', doctorData['id'])
             .order('fecha_hora', ascending: false);
 
         notes = (notasData as List<dynamic>).cast<Map<String, dynamic>>();
@@ -182,8 +196,44 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
 
     final motivo = _motivoController.text.trim();
     final diagnostico = _diagnosticoController.text.trim();
+    final sexo = _selectedSexo;
+    final peso = _pesoController.text.trim();
+    final altura = _alturaController.text.trim();
+    final temperatura = _temperaturaController.text.trim();
+    final presion = _presionController.text.trim();
+    final fc = _fcController.text.trim();
+    final fr = _frController.text.trim();
+
     if (motivo.isEmpty || diagnostico.isEmpty) {
       setState(() => _message = 'El motivo y el diagnóstico son obligatorios.');
+      return;
+    }
+    if (sexo == null || sexo.isEmpty) {
+      setState(() => _message = 'Debe seleccionar el sexo del paciente.');
+      return;
+    }
+    if (peso.isNotEmpty && !_isValidPeso(peso)) {
+      setState(() => _message = 'Peso inválido. Ingresa un número menor a 500 kg.');
+      return;
+    }
+    if (altura.isNotEmpty && !_isValidAltura(altura)) {
+      setState(() => _message = 'Altura inválida. Ingresa un número menor a 250 cm.');
+      return;
+    }
+    if (temperatura.isNotEmpty && !_isValidTemperatura(temperatura)) {
+      setState(() => _message = 'Temperatura inválida. Ingresa un número menor a 47 °C.');
+      return;
+    }
+    if (presion.isNotEmpty && !_isValidPresionArterial(presion)) {
+      setState(() => _message = 'Presión arterial inválida. Usa el formato 120/80 con valores razonables.');
+      return;
+    }
+    if (fc.isNotEmpty && !_isValidPpm(fc)) {
+      setState(() => _message = 'Frecuencia cardiaca inválida. Ingresa un número entre 30 y 220 ppm.');
+      return;
+    }
+    if (fr.isNotEmpty && !_isValidRpm(fr)) {
+      setState(() => _message = 'Frecuencia respiratoria inválida. Ingresa un número entre 10 y 80 rpm.');
       return;
     }
 
@@ -209,28 +259,29 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
 
       final expedienteId = await _ensureExpediente();
 
+      final fechaHora = DateTime.now().toIso8601String();
+
       await supabase.from('notas_medicas').insert({
         'expediente_id': expedienteId,
         'doctor_id': doctorData['id'],
+        'fecha_hora': fechaHora,
         'motivo_consulta': motivo,
         'diagnostico': diagnostico,
         'tratamiento': _tratamientoController.text.trim(),
-        'genero': _generoController.text.trim().isEmpty ? null : _generoController.text.trim(),
-        'peso': _pesoController.text.trim().isEmpty ? null : double.tryParse(_pesoController.text.trim()),
-        'altura': _alturaController.text.trim().isEmpty ? null : double.tryParse(_alturaController.text.trim()),
-        'temperatura': _temperaturaController.text.trim().isEmpty ? null : double.tryParse(_temperaturaController.text.trim()),
-        'presion_arterial': _presionController.text.trim().isEmpty ? null : _presionController.text.trim(),
-        'frecuencia_cardiaca': _fcController.text.trim().isEmpty ? null : int.tryParse(_fcController.text.trim()),
-        'frecuencia_respiratoria': _frController.text.trim().isEmpty ? null : int.tryParse(_frController.text.trim()),
-        'cedula_profesional': _cedulaController.text.trim().isEmpty ? null : _cedulaController.text.trim(),
+        'sexo': sexo,
+        'peso': peso.isEmpty ? null : double.tryParse(peso),
+        'altura': altura.isEmpty ? null : double.tryParse(altura),
+        'temperatura': temperatura.isEmpty ? null : double.tryParse(temperatura),
+        'presion_arterial': presion.isEmpty ? null : presion,
+        'frecuencia_cardiaca': fc.isEmpty ? null : int.tryParse(fc),
+        'frecuencia_respiratoria': fr.isEmpty ? null : int.tryParse(fr),
       });
 
       if (mounted) {
         _motivoController.clear();
         _diagnosticoController.clear();
         _tratamientoController.clear();
-        _cedulaController.clear();
-        _generoController.clear();
+        _selectedSexo = null;
         _pesoController.clear();
         _alturaController.clear();
         _temperaturaController.clear();
@@ -254,12 +305,60 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
     }
   }
 
+  bool _isNumeric(String value) {
+    return RegExp(r'^\d+(\.\d+)?$').hasMatch(value);
+  }
+
+  bool _isWholeNumber(String value) {
+    return RegExp(r'^\d+$').hasMatch(value);
+  }
+
+  bool _isValidPeso(String value) {
+    if (!_isNumeric(value)) return false;
+    final parsed = double.tryParse(value);
+    return parsed != null && parsed > 0 && parsed < 500;
+  }
+
+  bool _isValidAltura(String value) {
+    if (!_isNumeric(value)) return false;
+    final parsed = double.tryParse(value);
+    return parsed != null && parsed > 0 && parsed < 250;
+  }
+
+  bool _isValidTemperatura(String value) {
+    if (!_isNumeric(value)) return false;
+    final parsed = double.tryParse(value);
+    return parsed != null && parsed > 0 && parsed < 47;
+  }
+
+  bool _isValidPresionArterial(String value) {
+    final match = RegExp(r'^(\d{2,3})\/(\d{2,3})$').firstMatch(value);
+    if (match == null) return false;
+    final systolic = int.tryParse(match.group(1)!);
+    final diastolic = int.tryParse(match.group(2)!);
+    if (systolic == null || diastolic == null) return false;
+    return systolic >= 80 && systolic <= 220 && diastolic >= 40 && diastolic <= 140 && systolic > diastolic;
+  }
+
+  bool _isValidPpm(String value) {
+    if (!_isWholeNumber(value)) return false;
+    final parsed = int.tryParse(value);
+    return parsed != null && parsed >= 30 && parsed <= 220;
+  }
+
+  bool _isValidRpm(String value) {
+    if (!_isWholeNumber(value)) return false;
+    final parsed = int.tryParse(value);
+    return parsed != null && parsed >= 10 && parsed <= 80;
+  }
+
   Widget _buildField(
     String label,
     TextEditingController controller, {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     String hint = '',
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,6 +369,7 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: AltheaColors.textSecondary),
@@ -293,6 +393,7 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
         controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         hint: suffix,
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
       ),
     );
   }
@@ -320,7 +421,13 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
         leading: IconButton(
   icon: const Icon(Icons.arrow_back_rounded),
   onPressed: () {
-    context.go('/doctor/patients');
+    if (widget.from == 'dashboard') {
+      context.go('/doctor/dashboard');
+    } else if (widget.from == 'schedule') {
+      context.go('/doctor/schedule');
+    } else {
+      context.go('/doctor/patients');
+    }
   },
 ),
       ),
@@ -419,9 +526,35 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                     const SizedBox(height: 16),
                     _buildField('Tratamiento', _tratamientoController, maxLines: 3, hint: 'Describe el tratamiento prescrito'),
                     const SizedBox(height: 16),
-                    _buildField('Cédula Profesional', _cedulaController, hint: 'Ej. 12345678'),
-                    const SizedBox(height: 16),
-                    _buildField('Género', _generoController, hint: 'Masculino / Femenino / Otro'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Sexo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AltheaColors.navy)),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AltheaColors.borderLight),
+                          ),
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            hint: const Text('Selecciona el sexo', style: TextStyle(color: AltheaColors.textSecondary)),
+                            value: _selectedSexo,
+                            items: const [
+                              DropdownMenuItem(value: 'Masculino', child: Text('Masculino')),
+                              DropdownMenuItem(value: 'Femenino', child: Text('Femenino')),
+                            ],
+                            onChanged: (value) {
+                              setState(() => _selectedSexo = value);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -435,15 +568,39 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                       children: [
                         _buildMetricField('Temperatura (°C)', _temperaturaController, '°C'),
                         const SizedBox(width: 12),
-                        _buildMetricField('Presión arterial', _presionController, '120/80'),
+                        Expanded(
+                          child: _buildField(
+                            'Presión arterial',
+                            _presionController,
+                            keyboardType: TextInputType.text,
+                            hint: '120/80',
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\/]'))],
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        _buildMetricField('Frecuencia cardiaca', _fcController, 'ppm'),
+                        Expanded(
+                          child: _buildField(
+                            'Frecuencia cardiaca',
+                            _fcController,
+                            keyboardType: TextInputType.number,
+                            hint: 'ppm',
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
                         const SizedBox(width: 12),
-                        _buildMetricField('Frecuencia respiratoria', _frController, 'rpm'),
+                        Expanded(
+                          child: _buildField(
+                            'Frecuencia respiratoria',
+                            _frController,
+                            keyboardType: TextInputType.number,
+                            hint: 'rpm',
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -470,10 +627,17 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   }
 }
 
-class _NoteCard extends StatelessWidget {
+class _NoteCard extends StatefulWidget {
   final Map<String, dynamic> note;
 
   const _NoteCard({required this.note});
+
+  @override
+  State<_NoteCard> createState() => _NoteCardState();
+}
+
+class _NoteCardState extends State<_NoteCard> {
+  bool _isExpanded = false;
 
   String _formatDateTime(String? value) {
     if (value == null) return '-';
@@ -485,47 +649,78 @@ class _NoteCard extends StatelessWidget {
     }
   }
 
+  Widget _infoRow(String label, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AltheaColors.navy)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 14, color: AltheaColors.navy, height: 1.5)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AltheaColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatDateTime(note['fecha_hora']?.toString()),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AltheaColors.gold),
-              ),
-              Text(
-                note['cedula_profesional']?.toString() ?? 'Sin cédula',
-                style: const TextStyle(fontSize: 12, color: AltheaColors.textSecondary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text('Motivo', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AltheaColors.navy)),
-          const SizedBox(height: 4),
-          Text(note['motivo_consulta']?.toString() ?? '-', style: const TextStyle(fontSize: 14, color: AltheaColors.navy, height: 1.5)),
-          const SizedBox(height: 12),
-          Text('Diagnóstico', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AltheaColors.navy)),
-          const SizedBox(height: 4),
-          Text(note['diagnostico']?.toString() ?? '-', style: const TextStyle(fontSize: 14, color: AltheaColors.navy, height: 1.5)),
-          if ((note['tratamiento']?.toString() ?? '').isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text('Tratamiento', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AltheaColors.navy)),
+    final note = widget.note;
+    final motivo = note['motivo_consulta']?.toString() ?? '-';
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AltheaColors.borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatDateTime(note['fecha_hora']?.toString()),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AltheaColors.gold),
+                  ),
+                ),
+                Icon(
+                  _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                  color: AltheaColors.textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('Motivo', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AltheaColors.navy)),
             const SizedBox(height: 4),
-            Text(note['tratamiento']?.toString() ?? '-', style: const TextStyle(fontSize: 14, color: AltheaColors.navy, height: 1.5)),
+            Text(motivo, style: const TextStyle(fontSize: 14, color: AltheaColors.navy, height: 1.5)),
+            if (_isExpanded) ...[
+              _infoRow('Diagnóstico', note['diagnostico']?.toString() ?? '-'),
+              if ((note['tratamiento']?.toString() ?? '').isNotEmpty)
+                _infoRow('Tratamiento', note['tratamiento']?.toString() ?? '-'),
+              if ((note['sexo']?.toString() ?? '').isNotEmpty)
+                _infoRow('Sexo', note['sexo']?.toString()),
+              if ((note['peso']?.toString() ?? '').isNotEmpty)
+                _infoRow('Peso', note['peso']?.toString()),
+              if ((note['altura']?.toString() ?? '').isNotEmpty)
+                _infoRow('Altura', note['altura']?.toString()),
+              if ((note['temperatura']?.toString() ?? '').isNotEmpty)
+                _infoRow('Temperatura', note['temperatura']?.toString()),
+              if ((note['presion_arterial']?.toString() ?? '').isNotEmpty)
+                _infoRow('Presión arterial', note['presion_arterial']?.toString()),
+              if ((note['frecuencia_cardiaca']?.toString() ?? '').isNotEmpty)
+                _infoRow('Frecuencia cardiaca', note['frecuencia_cardiaca']?.toString()),
+              if ((note['frecuencia_respiratoria']?.toString() ?? '').isNotEmpty)
+                _infoRow('Frecuencia respiratoria', note['frecuencia_respiratoria']?.toString()),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

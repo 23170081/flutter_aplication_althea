@@ -241,7 +241,7 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
                           onTap: () {
                             final patientName = Uri.encodeComponent(p['name']?.toString() ?? 'Paciente');
                             final patientId = Uri.encodeComponent(p['id']?.toString() ?? '');
-                            context.go('/doctor/medical-record?patient=$patientName&patientId=$patientId');
+                            context.go('/doctor/medical-record?patient=$patientName&patientId=$patientId&from=patients');
                           },
                           child: Container(
                             padding: const EdgeInsets.all(16),

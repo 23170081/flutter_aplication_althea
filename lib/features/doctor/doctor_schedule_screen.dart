@@ -508,7 +508,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
                   final patientName = Uri.encodeComponent(appointment['patient']!);
                   final patientId = appointment['patientId']?.toString();
                   final queryString = patientId != null ? '&patientId=${Uri.encodeComponent(patientId)}' : '';
-                  context.go('/doctor/medical-record?patient=$patientName$queryString');
+                  context.go('/doctor/medical-record?patient=$patientName$queryString&from=schedule');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AltheaColors.navy,
