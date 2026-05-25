@@ -108,11 +108,15 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                             onTap: () => context.go('/receptionist/register-patient'),
                           ),
                         ),
-                        _ReceptionBtn(
-                          icon: Icons.event_busy_rounded,
-                          label: 'Citas',
-                          primary: true,
-                          onTap: () => context.go('/receptionist/appointments'),
+                        SizedBox(
+                          width: buttonWidth,
+                          height: 118,
+                          child: _ReceptionBtn(
+                            icon: Icons.event_busy_rounded,
+                            label: 'Citas',
+                            primary: true,
+                            onTap: () => context.go('/receptionist/appointments'),
+                          ),
                         ),
                       ],
                     );
