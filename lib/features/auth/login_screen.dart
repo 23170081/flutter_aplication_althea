@@ -379,23 +379,7 @@ class _LoginScreenState extends State<LoginScreen>
                                             : null,
                                       ),
 
-                                      // Forgot Password
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: () {},
-                                          child: const Text(
-                                            '¿Olvidaste tu contraseña?',
-                                            style: TextStyle(
-                                              color: AltheaColors.gold,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 16),
 
                                       // Login Button
                                       _AnimatedGoldButton(

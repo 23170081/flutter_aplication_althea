@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:bcrypt/bcrypt.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
 import 'package:flutter_application_althea/core/models/user_model.dart';
+import 'package:flutter_application_althea/core/utils/confirm_dialog.dart';
 
 class PatientProfileScreen extends StatelessWidget {
   const PatientProfileScreen({super.key});
@@ -13,22 +16,41 @@ class PatientProfileScreen extends StatelessWidget {
     final user = context.watch<UserProvider>().user;
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Mi Perfil', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
-        centerTitle: true,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: () => context.go('/patient/dashboard')),
-      ),
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header with avatar
+            SafeArea(
+              bottom: false,
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [AltheaColors.navy, AltheaColors.navyMid, AltheaColors.navy]),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                        onPressed: () => context.go('/patient/dashboard'),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Mi Perfil',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             Container(
               width: double.infinity,
-              padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 70, 20, 60),
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 60),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [AltheaColors.navy, AltheaColors.navyMid, AltheaColors.navy]),
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(48)),
@@ -82,10 +104,37 @@ class PatientProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
+                      icon: const Icon(Icons.lock_outline_rounded),
+                      label: const Text('Modificar Contraseña'),
+                      style: ElevatedButton.styleFrom(backgroundColor: AltheaColors.gold, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                      onPressed: () {
+                        if (user != null) {
+                          showDialog(context: context, builder: (_) => _ChangePasswordDialog(user: user));
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
                       icon: const Icon(Icons.logout_rounded),
                       label: const Text('Cerrar Sesión'),
                       style: ElevatedButton.styleFrom(backgroundColor: AltheaColors.error, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                      onPressed: () { context.read<UserProvider>().logout(); context.go('/'); },
+                      onPressed: () {
+                        showConfirmDialog(
+                          context,
+                          title: 'Cerrar Sesión',
+                          message: '¿Estás seguro de cerrar sesión?',
+                          confirmLabel: 'Sí, salir',
+                        ).then((confirmed) {
+                          if (confirmed == true) {
+                            context.read<UserProvider>().logout();
+                            context.go('/');
+                          }
+                        });
+                      },
                     ),
                   ),
                 ],
@@ -284,6 +333,128 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
           child: _isLoading 
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Text('Aceptar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  final UserModel user;
+  const _ChangePasswordDialog({required this.user});
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentPasswordCtrl = TextEditingController();
+  final _newPasswordCtrl = TextEditingController();
+  bool _showCurrentPassword = false;
+  bool _showNewPassword = false;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _currentPasswordCtrl.dispose();
+    _newPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userData = await supabase.from('usuarios').select('password').eq('id', widget.user.id).maybeSingle();
+      final storedPassword = userData?['password'] as String?;
+      if (storedPassword == null) {
+        throw Exception('No se encontró la cuenta o la contraseña no está disponible.');
+      }
+
+      final currentPassword = _currentPasswordCtrl.text.trim();
+      if (!BCrypt.checkpw(currentPassword, storedPassword)) {
+        throw Exception('La contraseña actual es incorrecta.');
+      }
+
+      final newPassword = _newPasswordCtrl.text.trim();
+      final hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+      await supabase.from('usuarios').update({'password': hashedPassword}).eq('id', widget.user.id);
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña actualizada correctamente.')));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Modificar Contraseña', style: TextStyle(color: AltheaColors.navy, fontWeight: FontWeight.bold)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _currentPasswordCtrl,
+                obscureText: !_showCurrentPassword,
+                decoration: InputDecoration(
+                  labelText: 'Contraseña actual',
+                  suffixIcon: IconButton(
+                    icon: Icon(_showCurrentPassword ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _showCurrentPassword = !_showCurrentPassword),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Ingresa tu contraseña actual';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _newPasswordCtrl,
+                obscureText: !_showNewPassword,
+                decoration: InputDecoration(
+                  labelText: 'Contraseña nueva',
+                  suffixIcon: IconButton(
+                    icon: Icon(_showNewPassword ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _showNewPassword = !_showNewPassword),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Ingresa una contraseña nueva';
+                  if (value.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar', style: TextStyle(color: AltheaColors.textSecondary, fontWeight: FontWeight.bold)),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AltheaColors.navy,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: _isLoading
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
+import 'package:flutter_application_althea/core/utils/confirm_dialog.dart';
 import 'package:flutter_application_althea/shared/widgets/althea_header.dart';
 
 class ReceptionistDashboardScreen extends StatelessWidget {
@@ -12,37 +13,6 @@ class ReceptionistDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>().user;
-
-    final activity = [
-      {
-        'action': 'Cita agendada',
-        'patient': 'Juan Pérez',
-        'time': 'Hace 10 min',
-        'icon': Icons.calendar_today_rounded,
-        'color': AltheaColors.navy,
-      },
-      {
-        'action': 'Pago registrado',
-        'patient': 'María López',
-        'time': 'Hace 25 min',
-        'icon': Icons.receipt_rounded,
-        'color': Color(0xFF28A745),
-      },
-      {
-        'action': 'Paciente registrado',
-        'patient': 'Carlos Gómez',
-        'time': 'Hace 1 hora',
-        'icon': Icons.person_add_rounded,
-        'color': AltheaColors.gold,
-      },
-      {
-        'action': 'Cita cancelada',
-        'patient': 'Ana Torres',
-        'time': 'Hace 2 horas',
-        'icon': Icons.cancel_rounded,
-        'color': Color(0xFFD32F2F),
-      },
-    ];
 
     return Scaffold(
       backgroundColor: AltheaColors.lightBg,
@@ -55,8 +25,17 @@ class ReceptionistDashboardScreen extends StatelessWidget {
               subtitle: 'Bienvenida,',
               bottomPadding: 24,
               onLogout: () {
-                context.read<UserProvider>().logout();
-                context.go('/');
+                showConfirmDialog(
+                  context,
+                  title: 'Cerrar Sesión',
+                  message: '¿Estás seguro de cerrar sesión?',
+                  confirmLabel: 'Sí, salir',
+                ).then((confirmed) {
+                  if (confirmed == true) {
+                    context.read<UserProvider>().logout();
+                    context.go('/');
+                  }
+                });
               },
             ),
             Padding(
@@ -89,7 +68,7 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                       children: [
                         SizedBox(
                           width: buttonWidth,
-                          height: 118,
+                          height: 180,
                           child: _ReceptionBtn(
                             icon: Icons.search_rounded,
                             label: 'Buscar Paciente',
@@ -100,7 +79,7 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                         ),
                         SizedBox(
                           width: buttonWidth,
-                          height: 118,
+                          height: 180,
                           child: _ReceptionBtn(
                             icon: Icons.person_add_rounded,
                             label: 'Nuevo Paciente',
@@ -110,7 +89,7 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                         ),
                         SizedBox(
                           width: buttonWidth,
-                          height: 118,
+                          height: 180,
                           child: _ReceptionBtn(
                             icon: Icons.event_busy_rounded,
                             label: 'Citas',
@@ -124,100 +103,7 @@ class ReceptionistDashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Activity
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Actividad Reciente',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: AltheaColors.navy,
-                        ),
-                      ),
-                      const Text(
-                        'Ver todo',
-                        style: TextStyle(
-                          color: AltheaColors.gold,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  ...activity.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AltheaColors.borderLight),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: (item['color'] as Color).withOpacity(
-                                  0.12,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                item['icon'] as IconData,
-                                color: item['color'] as Color,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item['action'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AltheaColors.navy,
-                                    ),
-                                  ),
-                                  Text(
-                                    item['patient'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AltheaColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              item['time'] as String,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AltheaColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+
           ],
         ),
       ),
