@@ -392,14 +392,18 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
       // 4. Verificación extra: Verificar si el horario ya fue reservado por otro paciente
       final existingAppointments = await supabase
           .from('citas')
-          .select('id')
+          .select('id, estado')
           .eq('doctor_id', widget.doctorId)
           .eq('fecha', dateFormatted)
-          .eq('hora', timeFormatted)
-          .neq('estado', 'cancelada');
+          .eq('hora', timeFormatted);
 
-      if (existingAppointments.isNotEmpty) {
-        throw Exception('Este horario ya está reservado. Por favor selecciona otro horario.');
+      // Si hay citas canceladas o terminadas, eliminarlas para permitir la nueva cita
+      for (var appointment in existingAppointments) {
+        if (appointment['estado'] == 'cancelada' || appointment['estado'] == 'terminada') {
+          await supabase.from('citas').delete().eq('id', appointment['id']);
+        } else if (appointment['estado'] == 'programada') {
+          throw Exception('Este horario ya está reservado. Por favor selecciona otro horario.');
+        }
       }
 
       // 5. Insertar cita en Supabase
