@@ -27,7 +27,35 @@ class _ReceptionistAppointmentsScreenState extends State<ReceptionistAppointment
 
   Future<void> _fetchAppointments() async {
     try {
+      final user = context.read<UserProvider>().user;
+      if (user == null) {
+        throw Exception('No se pudo identificar al usuario.');
+      }
+
       final supabase = Supabase.instance.client;
+      debugPrint('Buscar recepcionista para usuario_id=${user.id}');
+      final dynamic receptionistData = await supabase
+          .from('recepcionistas')
+          .select('usuario_id, sucursal_id')
+          .eq('usuario_id', user.id)
+          .maybeSingle();
+      debugPrint('Recepcionista encontrado: $receptionistData');
+
+      String? branchId;
+      if (receptionistData is Map<String, dynamic>) {
+        branchId = receptionistData['sucursal_id']?.toString();
+      } else if (receptionistData is List && receptionistData.isNotEmpty) {
+        final item = receptionistData.first;
+        if (item is Map<String, dynamic>) {
+          branchId = item['sucursal_id']?.toString();
+        }
+      }
+
+      if (branchId == null) {
+        debugPrint('Recepcionista data no encontrada: $receptionistData | usuario_id=${user.id}');
+        throw Exception('No se encontró la sucursal asignada a la recepcionista.');
+      }
+
       final data = await supabase
           .from('citas')
           .select('''
@@ -44,6 +72,7 @@ class _ReceptionistAppointmentsScreenState extends State<ReceptionistAppointment
             ),
             sucursales (nombre)
           ''')
+          .eq('sucursal_id', branchId)
           .neq('estado', 'cancelada')
           .order('fecha', ascending: true)
           .order('hora', ascending: true);

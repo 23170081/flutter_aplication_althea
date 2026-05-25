@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
+import 'package:flutter_application_althea/core/providers/user_provider.dart';
 
 class ReceptionistRegisterPatientScreen extends StatefulWidget {
   const ReceptionistRegisterPatientScreen({super.key});
@@ -103,7 +105,7 @@ class _ReceptionistRegisterPatientScreenState
       }
 
       final hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
-      await supabase.from('usuarios').insert({
+      final createdPatient = await supabase.from('usuarios').insert({
         'nombre_completo': _nameCtrl.text.trim(),
         'correo': email.isEmpty ? null : email,
         'telefono': phone,
@@ -113,15 +115,29 @@ class _ReceptionistRegisterPatientScreenState
         'curp': curp,
         'password': hashedPassword,
         'registrado_por': 'recepcion',
+      }).select('id, nombre_completo').single();
+
+      final patientId = createdPatient['id'];
+      final patientName = createdPatient['nombre_completo'] ?? _nameCtrl.text.trim();
+      final receptionistId = context.read<UserProvider>().user?.id;
+
+      if (receptionistId != null) {
+        await supabase.from('notifications').insert({
+          'user_id': receptionistId,
+          'title': 'Paciente registrado',
+          'message': 'Se creó el paciente $patientName correctamente.',
+          'type': 'paciente_registrado',
+        });
+      }
+
+      await supabase.from('notifications').insert({
+        'user_id': patientId,
+        'title': 'Bienvenido a Althea',
+        'message': 'Bienvenido a Althea, $patientName. Te recomendamos cambiar tu contraseña lo antes posible por temas de seguridad. Puede encontrar esta opción en tu perfil.',
+        'type': 'bienvenida',
       });
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Paciente registrado correctamente.'),
-          backgroundColor: Color(0xFF16A34A),
-        ),
-      );
+      
       context.go('/receptionist/dashboard');
     } catch (e) {
       if (!mounted) return;
@@ -364,6 +380,22 @@ class _ReceptionistRegisterPatientScreenState
                                           );
                                           if (!curpRegex.hasMatch(value)) {
                                             return 'CURP inválida';
+                                          }
+                                          final expectedNamePart =
+                                              _buildCurpNamePart(
+                                            _nameCtrl.text.trim(),
+                                          );
+                                          if (expectedNamePart.isNotEmpty &&
+                                              value.substring(0, 4) !=
+                                                  expectedNamePart) {
+                                            return 'La CURP no coincide con el nombre';
+                                          }
+                                          final birthDate = _birthDateCtrl.text.trim();
+                                          final birthPart =
+                                              _buildCurpDatePart(birthDate);
+                                          if (birthPart.isNotEmpty &&
+                                              value.substring(4, 10) != birthPart) {
+                                            return 'La fecha de la CURP es incorrecta';
                                           }
                                           return null;
                                         },
@@ -637,6 +669,77 @@ class _ReceptionistRegisterPatientScreenState
         ),
       ],
     );
+  }
+
+  String _normalizeName(String name) {
+    return name
+        .toUpperCase()
+        .replaceAll(RegExp(r'[ÁÀÂÄ]'), 'A')
+        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+        .replaceAll(RegExp(r'[ÓÒÔÖ]'), 'O')
+        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+        .replaceAll(RegExp(r'Ñ'), 'N')
+        .replaceAll(RegExp(r'[^A-Z ]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _buildCurpNamePart(String fullName) {
+    final normalized = _normalizeName(fullName);
+
+    if (normalized.isEmpty) return '';
+
+    final parts = normalized.split(' ');
+
+    if (parts.length < 2) return '';
+
+    String paternalSurname = '';
+    String maternalSurname = '';
+    List<String> givenNames = [];
+
+    if (parts.length == 2) {
+      givenNames = [parts[0]];
+      paternalSurname = parts[1];
+      maternalSurname = 'X';
+    } else {
+      paternalSurname = parts[parts.length - 2];
+      maternalSurname = parts[parts.length - 1];
+      givenNames = parts.sublist(0, parts.length - 2);
+    }
+
+    String givenName = givenNames.first;
+
+    if ((givenName == 'JOSE' || givenName == 'MARIA') &&
+        givenNames.length > 1) {
+      givenName = givenNames[1];
+    }
+
+    String firstVowel(String s) {
+      for (var i = 1; i < s.length; i++) {
+        if ('AEIOU'.contains(s[i])) {
+          return s[i];
+        }
+      }
+      return 'X';
+    }
+
+    final p1 = paternalSurname.isNotEmpty ? paternalSurname[0] : 'X';
+    final p2 = paternalSurname.length > 1 ? firstVowel(paternalSurname) : 'X';
+    final p3 = maternalSurname.isNotEmpty ? maternalSurname[0] : 'X';
+    final p4 = givenName.isNotEmpty ? givenName[0] : 'X';
+
+    return '$p1$p2$p3$p4';
+  }
+
+  String _buildCurpDatePart(String birthDate) {
+    final regex = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+    final match = regex.firstMatch(birthDate);
+    if (match == null) return '';
+    final year = match.group(3)!;
+    final month = match.group(2)!;
+    final day = match.group(1)!;
+    return '${year.substring(2)}$month$day';
   }
 }
 

@@ -12,6 +12,7 @@ class AltheaHeader extends StatelessWidget {
   final VoidCallback onLogout;
   final VoidCallback? onSettings;
   final VoidCallback? onNotifications;
+  final VoidCallback? onLogoTap;
   final double bottomPadding;
 
   const AltheaHeader({
@@ -22,12 +23,14 @@ class AltheaHeader extends StatelessWidget {
     required this.onLogout,
     this.onSettings,
     this.onNotifications,
+    this.onLogoTap,
     this.bottomPadding = 48,
   });
 
   @override
   Widget build(BuildContext context) {
     final unreadCount = context.watch<NotificationProvider>().unreadCount;
+    final onSettingsCallback = onSettings;
 
     return Container(
       decoration: const BoxDecoration(
@@ -81,30 +84,46 @@ class AltheaHeader extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Logo
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                      InkWell(
+                        onTap: onLogoTap ?? () {
+                          final role = roleLabel.toLowerCase();
+                          if (role.contains('doctor')) {
+                            context.go('/doctor/dashboard');
+                          } else if (role.contains('paciente') || role.contains('patient')) {
+                            context.go('/patient/dashboard');
+                          } else if (role.contains('recepcion')) {
+                            context.go('/receptionist/dashboard');
+                          } else if (role.contains('admin')) {
+                            context.go('/admin/dashboard');
+                          } else {
+                            context.go('/');
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Image.asset(
+                                'assets/images/logoAlthea.png',
+                                width: 32,
+                                height: 32,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.local_hospital_rounded,
+                                  color: AltheaColors.gold,
+                                  size: 28,
+                                ),
                               ),
                             ),
-                            child: Image.asset(
-                              'assets/images/logoAlthea.png',
-                              width: 32,
-                              height: 32,
-                              errorBuilder: (_, _, _) => const Icon(
-                                Icons.local_hospital_rounded,
-                                color: AltheaColors.gold,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
+                            const SizedBox(width: 12),
+                            Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
@@ -128,6 +147,7 @@ class AltheaHeader extends StatelessWidget {
                             ],
                           ),
                         ],
+                      ),
                       ),
                       // Actions
                       Row(
@@ -154,11 +174,13 @@ class AltheaHeader extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(width: 8),
-                          _HeaderIconButton(
-                            icon: Icons.settings_outlined,
-                            onTap: onSettings ?? () {},
-                          ),
+                          if (onSettingsCallback != null) ...[
+                            const SizedBox(width: 8),
+                            _HeaderIconButton(
+                              icon: Icons.settings_outlined,
+                              onTap: onSettingsCallback,
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           _HeaderIconButton(
                             icon: Icons.logout_rounded,

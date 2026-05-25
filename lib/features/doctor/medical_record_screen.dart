@@ -666,6 +666,7 @@ class _NoteCardState extends State<_NoteCard> {
   Widget build(BuildContext context) {
     final note = widget.note;
     final motivo = note['motivo_consulta']?.toString() ?? '-';
+    final sexo = note['sexo']?.toString() ?? '';
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => setState(() => _isExpanded = !_isExpanded),

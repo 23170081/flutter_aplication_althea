@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
+import 'package:flutter_application_althea/core/utils/confirm_dialog.dart';
 import 'package:flutter_application_althea/shared/widgets/althea_header.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
@@ -100,8 +101,17 @@ class AdminDashboardScreen extends StatelessWidget {
                       subtitle: 'Panel de Control',
                       bottomPadding: 30,
                       onLogout: () {
-                        context.read<UserProvider>().logout();
-                        context.go('/');
+                        showConfirmDialog(
+                          context,
+                          title: 'Cerrar Sesión',
+                          message: '¿Estás seguro de cerrar sesión?',
+                          confirmLabel: 'Sí, salir',
+                        ).then((confirmed) {
+                          if (confirmed == true) {
+                            context.read<UserProvider>().logout();
+                            context.go('/');
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 300),

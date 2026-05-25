@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:flutter_application_althea/core/theme/app_theme.dart';
 import 'package:flutter_application_althea/core/providers/user_provider.dart';
+import 'package:flutter_application_althea/core/utils/confirm_dialog.dart';
 import 'package:flutter_application_althea/shared/widgets/althea_header.dart';
 
 // Funciones auxiliares globales para estado de citas
@@ -548,8 +549,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       subtitle: 'Bienvenido de nuevo,',
                       bottomPadding: 30,
                       onLogout: () {
-                        context.read<UserProvider>().logout();
-                        context.go('/');
+                        showConfirmDialog(
+                          context,
+                          title: 'Cerrar Sesión',
+                          message: '¿Estás seguro de cerrar sesión?',
+                          confirmLabel: 'Sí, salir',
+                        ).then((confirmed) {
+                          if (confirmed == true) {
+                            context.read<UserProvider>().logout();
+                            context.go('/');
+                          }
+                        });
                       },
                       onSettings: () => context.go('/patient/profile'),
                     ),
