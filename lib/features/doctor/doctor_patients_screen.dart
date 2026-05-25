@@ -238,9 +238,11 @@ class _DoctorPatientsScreenState extends State<DoctorPatientsScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: GestureDetector(
-                          onTap: () => context.go(
-                            '/doctor/medical-record?patient=${Uri.encodeComponent(p['name']?.toString() ?? 'Paciente')}',
-                          ),
+                          onTap: () {
+                            final patientName = Uri.encodeComponent(p['name']?.toString() ?? 'Paciente');
+                            final patientId = Uri.encodeComponent(p['id']?.toString() ?? '');
+                            context.go('/doctor/medical-record?patient=$patientName&patientId=$patientId');
+                          },
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(

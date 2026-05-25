@@ -138,6 +138,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           todayAppointmentsList.add({
             'id': c['id'],
             'patient': c['usuarios']?['nombre_completo'] ?? 'Paciente',
+            'patientId': c['usuarios']?['id']?.toString(),
             'time': c['hora'],
             'type': c['sucursales']?['nombre'] ?? 'Consulta',
             'status': 'pending',
@@ -423,9 +424,10 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  context.go(
-                    '/doctor/medical-record?patient=${Uri.encodeComponent(appointment['patient']!)}',
-                  );
+                  final patientName = Uri.encodeComponent(appointment['patient']!);
+                  final patientId = appointment['patientId']?.toString();
+                  final queryString = patientId != null ? '&patientId=${Uri.encodeComponent(patientId)}' : '';
+                  context.go('/doctor/medical-record?patient=$patientName$queryString');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AltheaColors.navy,
