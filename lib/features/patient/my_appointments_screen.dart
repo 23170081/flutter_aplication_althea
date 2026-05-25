@@ -388,55 +388,59 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AltheaColors.navy),
             )
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Pestañas de filtrado
-                      Container(
-                        height: 50,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _buildFilterTab('Todas', 'todas'),
-                            _buildFilterTab('Próximas', 'proximas'),
-                            _buildFilterTab('Completadas', 'completadas'),
-                            _buildFilterTab('Canceladas', 'canceladas'),
-                          ],
-                        ),
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Pestañas de filtrado
+                    Container(
+                      height: 50,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _buildFilterTab('Todas', 'todas'),
+                          _buildFilterTab('Próximas', 'proximas'),
+                          _buildFilterTab('Completadas', 'completadas'),
+                          _buildFilterTab('Canceladas', 'canceladas'),
+                        ],
                       ),
-                      if (_filteredAppointments.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20),
-                          child: Center(
-                            child: Text(
-                              _getEmptyMessage(),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: AltheaColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                    ),
+                    if (_filteredAppointments.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Text(
+                            _getEmptyMessage(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: AltheaColors.textSecondary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        )
-                      else
-                        ..._filteredAppointments.map(
-                          (a) => Padding(
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _filteredAppointments.length,
+                        itemBuilder: (context, index) {
+                          final a = _filteredAppointments[index];
+                          return Padding(
                             padding: const EdgeInsets.only(bottom: 14),
                             child: _AppointmentCard(
                               appointment: a,
                               onTap: () => _showAppointmentDetails(a),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                          );
+                        },
+                      ),
+                  ],
                 ),
-              ],
+              ),
             ),
     );
   }

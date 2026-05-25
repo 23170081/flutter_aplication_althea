@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen>
       } else {
         errorMessage = e.toString().replaceAll('Exception: ', '');
       }
-      
+
       if (mounted) {
         final messenger = ScaffoldMessenger.of(context);
         messenger.clearSnackBars();
@@ -126,17 +126,12 @@ class _LoginScreenState extends State<LoginScreen>
           SnackBar(
             content: Row(
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.white,
-                ),
+                const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     errorMessage,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -306,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(28, 32, 28, 0),
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -334,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                 ),
 
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 16),
 
                                 // Form
                                 Form(
@@ -349,7 +344,8 @@ class _LoginScreenState extends State<LoginScreen>
                                         icon: Icons.phone_outlined,
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
                                         ],
                                         validator: (v) {
                                           if (v == null || v.isEmpty) {
@@ -365,7 +361,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           return null;
                                         },
                                       ),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 8),
 
                                       // Password
                                       _GlassInput(
@@ -399,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
 
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 4),
 
                                       // Login Button
                                       _AnimatedGoldButton(
@@ -408,64 +404,78 @@ class _LoginScreenState extends State<LoginScreen>
                                         isLoading: _isLoading,
                                       ),
 
-                                      const SizedBox(height: 28),
+                                      const SizedBox(height: 12),
 
-                                      // Divider
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Divider(
-                                              color: Colors.white.withOpacity(
-                                                0.2,
-                                              ),
+                                      // Security Section
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(
+                                              0.08,
                                             ),
                                           ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.shield_outlined,
+                                                  color: AltheaColors.gold,
+                                                  size: 24,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Acceso seguro y cifrado',
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withOpacity(0.9),
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w600,
+                                                    letterSpacing: 0.3,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            child: Text(
-                                              'o continúa con',
+
+                                            const SizedBox(height: 8),
+
+                                            Container(
+                                              width: 40,
+                                              height: 1,
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                            ),
+
+                                            const SizedBox(height: 8),
+
+                                            Text(
+                                              'Sistema exclusivo para pacientes y personal autorizado',
+                                              textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: Colors.white.withOpacity(
                                                   0.5,
                                                 ),
-                                                fontSize: 12,
+                                                fontSize: 14,
+                                                height: 1.5,
                                               ),
                                             ),
-                                          ),
-                                          Expanded(
-                                            child: Divider(
-                                              color: Colors.white.withOpacity(
-                                                0.2,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
 
-                                      const SizedBox(height: 16),
-
-                                      // Social buttons
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _SocialButton(
-                                              label: 'Google',
-                                              icon: _googleIcon(),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: _SocialButton(
-                                              label: 'Facebook',
-                                              icon: _facebookIcon(),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 24),
+                                      const SizedBox(height: 8),
                                     ],
                                   ),
                                 ),
@@ -544,11 +554,6 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
-  Widget _googleIcon() =>
-      const Icon(Icons.g_mobiledata_rounded, color: Colors.white, size: 22);
-  Widget _facebookIcon() =>
-      const Icon(Icons.facebook_rounded, color: Color(0xFF1877F2), size: 22);
 }
 
 // ─── Sub-widgets ───────────────────────────────────────────────
@@ -644,7 +649,11 @@ class _GlassInput extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AltheaColors.error),
             ),
-            errorStyle: const TextStyle(color: AltheaColors.error),
+            errorStyle: const TextStyle(
+              color: AltheaColors.error,
+              fontSize: 11,
+              height: 1.2,
+            ),
           ),
         ),
       ],
@@ -719,58 +728,6 @@ class _AnimatedGoldButtonState extends State<_AnimatedGoldButton> {
                     ),
                   ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatefulWidget {
-  final String label;
-  final Widget icon;
-
-  const _SocialButton({required this.label, required this.icon});
-
-  @override
-  State<_SocialButton> createState() => _SocialButtonState();
-}
-
-class _SocialButtonState extends State<_SocialButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: 48,
-        decoration: BoxDecoration(
-          color: _hovered
-              ? Colors.black.withOpacity(0.4)
-              : Colors.black.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _hovered
-                ? Colors.white.withOpacity(0.2)
-                : Colors.white.withOpacity(0.1),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            widget.icon,
-            const SizedBox(width: 8),
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         ),
       ),
     );

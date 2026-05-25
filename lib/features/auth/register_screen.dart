@@ -226,7 +226,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(28, 32, 28, 0),
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                             child: Column(
                               children: [
                                 const Text(
@@ -245,7 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                     fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(height: 28),
+                                const SizedBox(height: 12),
 
                                 Form(
                                   key: _formKey,
@@ -257,7 +257,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         'Juan Pérez',
                                         Icons.person_outline_rounded,
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       _buildField(
                                         _emailCtrl,
                                         'Correo electrónico',
@@ -276,7 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           return null;
                                         },
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       Row(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -308,7 +308,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       _buildField(
                                         _curpCtrl,
                                         'CURP',
@@ -343,19 +343,19 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           if (expectedNamePart.isNotEmpty &&
                                               value.substring(0, 4) !=
                                                   expectedNamePart) {
-                                            return 'Los primeros 4 caracteres de la CURP no coinciden con el nombre';
+                                            return 'La CURP no coincide con el nombre';
                                           }
                                           final birthDate = _birthDateCtrl.text.trim();
                                           final birthPart =
                                               _buildCurpDatePart(birthDate);
                                           if (birthPart.isNotEmpty &&
                                               value.substring(4, 10) != birthPart) {
-                                            return 'La fecha en la CURP no coincide con la fecha de nacimiento';
+                                            return 'La fecha de la CURP es incorrecta';
                                           }
                                           return null;
                                         },
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       _buildField(
                                         _birthDateCtrl,
                                         'Fecha de nacimiento',
@@ -430,11 +430,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           return null;
                                         },
                                       ),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       _buildPasswordField(),
-                                      const SizedBox(height: 14),
+                                      const SizedBox(height: 4),
                                       _buildDropdownField(),
-                                      const SizedBox(height: 24),
+                                      const SizedBox(height: 8),
 
                                       // Register Button
                                       _GoldButton(
@@ -585,7 +585,11 @@ class _RegisterScreenState extends State<RegisterScreen>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AltheaColors.error),
             ),
-            errorStyle: const TextStyle(color: AltheaColors.error),
+            errorStyle: const TextStyle(
+              color: AltheaColors.error,
+              fontSize: 11,
+              height: 1.2,
+            ),
           ),
         ),
       ],
@@ -606,6 +610,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           value: _selectedBloodType,
           validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
           dropdownColor: AltheaColors.darkBg,
@@ -613,14 +618,19 @@ class _RegisterScreenState extends State<RegisterScreen>
             Icons.keyboard_arrow_down_rounded,
             color: Colors.white.withOpacity(0.4),
           ),
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          hint: const Text(
+            'Selecciona tu tipo',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
           decoration: InputDecoration(
-            hintText: 'Selecciona tu tipo de sangre',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             prefixIcon: Icon(
               Icons.bloodtype_outlined,
               color: Colors.white.withOpacity(0.4),
-              size: 20,
+              size: 18,
             ),
             filled: true,
             fillColor: Colors.black.withOpacity(0.2),
@@ -647,17 +657,21 @@ class _RegisterScreenState extends State<RegisterScreen>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AltheaColors.error),
             ),
-            errorStyle: const TextStyle(color: AltheaColors.error),
+            errorStyle: const TextStyle(
+              color: AltheaColors.error,
+              fontSize: 11,
+              height: 1.2,
+            ),
           ),
           items: const [
-            DropdownMenuItem(value: 'A+', child: Text('A+')),
-            DropdownMenuItem(value: 'A-', child: Text('A-')),
-            DropdownMenuItem(value: 'B+', child: Text('B+')),
-            DropdownMenuItem(value: 'B-', child: Text('B-')),
-            DropdownMenuItem(value: 'O+', child: Text('O+')),
-            DropdownMenuItem(value: 'O-', child: Text('O-')),
-            DropdownMenuItem(value: 'AB+', child: Text('AB+')),
-            DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+            DropdownMenuItem(value: 'A+', child: Text('A+', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'A-', child: Text('A-', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'B+', child: Text('B+', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'B-', child: Text('B-', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'O+', child: Text('O+', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'O-', child: Text('O-', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'AB+', child: Text('AB+', style: TextStyle(color: Colors.white))),
+            DropdownMenuItem(value: 'AB-', child: Text('AB-', style: TextStyle(color: Colors.white))),
           ],
           onChanged: (value) {
             setState(() {
@@ -822,7 +836,11 @@ class _RegisterScreenState extends State<RegisterScreen>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AltheaColors.error),
             ),
-            errorStyle: const TextStyle(color: AltheaColors.error),
+            errorStyle: const TextStyle(
+              color: AltheaColors.error,
+              fontSize: 11,
+              height: 1.2,
+            ),
           ),
         ),
       ],

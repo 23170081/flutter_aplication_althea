@@ -42,6 +42,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
         String doctorId = user['id'].toString(); // Fallback
         String consultorio = 'No asignado';
         String avatarUrl = '';
+        String diasHabiles = '';
         
         if (doctoresData != null) {
           if (doctoresData is List && doctoresData.isNotEmpty) {
@@ -57,6 +58,29 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
           }
         }
 
+        // Obtener días hábiles del doctor
+        if (doctorId.isNotEmpty) {
+          final horarios = await Supabase.instance.client
+              .from('horarios_doctor')
+              .select('dia_semana')
+              .eq('doctor_id', doctorId);
+          
+          final dias = horarios.map((h) => h['dia_semana'] as int).toSet();
+          if (dias.isNotEmpty) {
+            final diasNombres = {
+              0: 'Dom',
+              1: 'Lun',
+              2: 'Mar',
+              3: 'Mié',
+              4: 'Jue',
+              5: 'Vie',
+              6: 'Sáb',
+            };
+            final diasOrdenados = dias.toList()..sort();
+            diasHabiles = diasOrdenados.map((d) => diasNombres[d] ?? '').join(', ');
+          }
+        }
+
         if (doctorId.isEmpty) continue;
 
         fetchedSpecialties.add(specialty);
@@ -66,6 +90,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
           'name': user['nombre_completo']?.toString() ?? 'Doctor',
           'specialty': specialty,
           'consultorio': consultorio,
+          'diasHabiles': diasHabiles.isEmpty ? 'No disponible' : diasHabiles,
           'avatarUrl': avatarUrl,
           'rating': '5.0', // Dato simulado
           'reviews': '0',  // Dato simulado
@@ -105,7 +130,8 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
     final filteredDoctors = _allDoctors.where((dr) {
       final matchesSearch =
           dr['name']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          dr['specialty']!.toLowerCase().contains(_searchQuery.toLowerCase());
+          dr['specialty']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          dr['diasHabiles']!.toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesSpecialty =
           _activeSpecialty == 'Todos' || dr['specialty'] == _activeSpecialty;
       return matchesSearch && matchesSpecialty;
@@ -345,6 +371,7 @@ class _DoctorCard extends StatefulWidget {
 
 class _DoctorCardState extends State<_DoctorCard> {
   bool _pressed = false;
+
   @override
   Widget build(BuildContext context) {
     final d = widget.doctor;
@@ -452,13 +479,13 @@ class _DoctorCardState extends State<_DoctorCard> {
                         Row(
                           children: [
                             Icon(
-                              Icons.door_front_door_rounded,
+                              Icons.calendar_today_outlined,
                               size: 14,
                               color: AltheaColors.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              d['consultorio']!,
+                              d['diasHabiles']!,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AltheaColors.textSecondary,
