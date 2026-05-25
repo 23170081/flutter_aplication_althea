@@ -337,7 +337,7 @@ class _RefundCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '\$${refund.monto.toStringAsFixed(2)}',
+                '${refund.monto.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
