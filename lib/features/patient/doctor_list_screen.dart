@@ -30,7 +30,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
     try {
       final response = await Supabase.instance.client
           .from('usuarios')
-          .select('id, nombre_completo, doctores(id, especialidad, consultorio)')
+          .select('id, nombre_completo, doctores(id, especialidad, consultorio, avatar_url)')
           .eq('rol', 'doctor');
 
       final List<Map<String, String>> fetchedDoctors = [];
@@ -41,16 +41,19 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
         String specialty = 'General';
         String doctorId = user['id'].toString(); // Fallback
         String consultorio = 'No asignado';
+        String avatarUrl = '';
         
         if (doctoresData != null) {
           if (doctoresData is List && doctoresData.isNotEmpty) {
             specialty = doctoresData[0]['especialidad']?.toString() ?? 'General';
             doctorId = doctoresData[0]['id']?.toString() ?? user['id'].toString();
             consultorio = doctoresData[0]['consultorio']?.toString() ?? 'No asignado';
+            avatarUrl = doctoresData[0]['avatar_url']?.toString() ?? '';
           } else if (doctoresData is Map) {
             specialty = doctoresData['especialidad']?.toString() ?? 'General';
             doctorId = doctoresData['id']?.toString() ?? user['id'].toString();
             consultorio = doctoresData['consultorio']?.toString() ?? 'No asignado';
+            avatarUrl = doctoresData['avatar_url']?.toString() ?? '';
           }
         }
 
@@ -63,6 +66,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
           'name': user['nombre_completo']?.toString() ?? 'Doctor',
           'specialty': specialty,
           'consultorio': consultorio,
+          'avatarUrl': avatarUrl,
           'rating': '5.0', // Dato simulado
           'reviews': '0',  // Dato simulado
           'availability': 'Consultar disponibilidad',
@@ -368,6 +372,61 @@ class _DoctorCardState extends State<_DoctorCard> {
             children: [
               Row(
                 children: [
+                  // Avatar del doctor
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        colors: [
+                          AltheaColors.gold.withOpacity(0.4),
+                          AltheaColors.gold.withOpacity(0.2),
+                          AltheaColors.navy.withOpacity(0.1),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: AltheaColors.gold.withOpacity(0.4),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AltheaColors.gold.withOpacity(0.2),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: d['avatarUrl'] != null && d['avatarUrl']!.isNotEmpty
+                          ? Image.network(
+                              d['avatarUrl']!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: AltheaColors.lightBg,
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 30,
+                                    color: AltheaColors.textSecondary,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: AltheaColors.lightBg,
+                              child: const Icon(
+                                Icons.person,
+                                size: 30,
+                                color: AltheaColors.textSecondary,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

@@ -394,13 +394,12 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
           .from('citas')
           .select('id')
           .eq('doctor_id', widget.doctorId)
-          .eq('sucursal_id', _selectedBranch!['id'])
           .eq('fecha', dateFormatted)
           .eq('hora', timeFormatted)
           .neq('estado', 'cancelada');
 
       if (existingAppointments.isNotEmpty) {
-        throw Exception('Este horario ya fue reservado por otro paciente. Por favor selecciona otro horario.');
+        throw Exception('Este horario ya está reservado. Por favor selecciona otro horario.');
       }
 
       // 5. Insertar cita en Supabase
@@ -519,6 +518,61 @@ class _AppointmentBookingScreenState extends State<AppointmentBookingScreen> {
                     ),
                     child: Row(
                       children: [
+                        // Avatar del doctor
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              colors: [
+                                AltheaColors.gold.withOpacity(0.5),
+                                AltheaColors.gold.withOpacity(0.3),
+                                Colors.white.withOpacity(0.2),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(
+                              color: AltheaColors.gold.withOpacity(0.5),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AltheaColors.gold.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: doctor['avatarUrl'] != null && doctor['avatarUrl']!.isNotEmpty
+                                ? Image.network(
+                                    doctor['avatarUrl']!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.white.withOpacity(0.1),
+                                        child: const Icon(
+                                          Icons.person,
+                                          size: 30,
+                                          color: Colors.white70,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    color: Colors.white.withOpacity(0.1),
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 30,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

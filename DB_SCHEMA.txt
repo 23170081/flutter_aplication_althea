@@ -36,6 +36,7 @@ CREATE TABLE public.doctores (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   usuario_id uuid NOT NULL,
   especialidad text,
+  consultorio text,
   CONSTRAINT doctores_pkey PRIMARY KEY (id),
   CONSTRAINT doctores_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
 );
